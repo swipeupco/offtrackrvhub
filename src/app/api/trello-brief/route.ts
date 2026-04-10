@@ -22,7 +22,7 @@ function parseDesc(raw: string | null) {
 
 export async function POST(request: Request) {
   try {
-    const { name, desc, referenceUrls = [] } = await request.json()
+    const { name, desc, campaign: explicitCampaign, referenceUrls = [] } = await request.json()
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
@@ -42,8 +42,8 @@ export async function POST(request: Request) {
       headers: { ...supaHeaders, Prefer: 'return=representation' },
       body: JSON.stringify({
         name:          name.trim(),
-        description:   parsed.brief || null,
-        campaign:      parsed.campaign || null,
+        description:   parsed.brief || desc || null,
+        campaign:      explicitCampaign || parsed.campaign || null,
         content_type:  parsed.contentType || null,
         sizes:         parsed.sizes || null,
         status:        'backlog',
