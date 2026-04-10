@@ -1,7 +1,7 @@
 'use client'
 
 import { format, parseISO, isPast } from 'date-fns'
-import { X, CheckCircle2, Circle, Send, AlertTriangle, LayoutKanban } from 'lucide-react'
+import { X, CheckCircle2, Circle, Send, AlertTriangle, Kanban } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import type { MarketingTask, Show, TaskStatus } from '@/types'
@@ -228,7 +228,7 @@ export function TaskDrawer({ show, tasks, onClose, onTasksChange }: Props) {
                   {/* Pipeline status */}
                   {briefId ? (
                     <p className="flex items-center gap-1.5 text-xs text-teal-600 font-medium">
-                      <LayoutKanban className="h-3 w-3" />
+                      <Kanban className="h-3 w-3" />
                       Pipeline: {pipStatus ? PIPELINE_LABELS[pipStatus] ?? pipStatus : 'Backlog'}
                     </p>
                   ) : (
