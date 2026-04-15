@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [shoots, setShoots]   = useState<VideoShoot[]>([])
   const [briefs, setBriefs]   = useState<Brief[]>([])
   const [clientColor, setClientColor] = useState('#14C29F')
+  const [hasVans, setHasVans] = useState(false)
   const [loading, setLoading] = useState(true)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
@@ -40,17 +41,21 @@ export default function DashboardPage() {
       const { data: profile } = await supabase
         .from('profiles').select('client_id').eq('id', user.id).single()
 
-      const [showsRes, shootsRes] = await Promise.all([
-        supabase.from('shows').select('*').order('start_date', { ascending: true }),
-        supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true }),
-      ])
-      setShows((showsRes.data as Show[]) ?? [])
-      setShoots((shootsRes.data as VideoShoot[]) ?? [])
-
       if (profile?.client_id) {
         const { data: client } = await supabase
-          .from('clients').select('color').eq('id', profile.client_id).single()
+          .from('clients').select('color, has_vans').eq('id', profile.client_id).single()
         if (client?.color) setClientColor(client.color)
+        const clientHasVans = client?.has_vans ?? false
+        setHasVans(clientHasVans)
+
+        if (clientHasVans) {
+          const [showsRes, shootsRes] = await Promise.all([
+            supabase.from('shows').select('*').order('start_date', { ascending: true }),
+            supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true }),
+          ])
+          setShows((showsRes.data as Show[]) ?? [])
+          setShoots((shootsRes.data as VideoShoot[]) ?? [])
+        }
 
         const { data: briefData } = await supabase
           .from('briefs')
@@ -59,7 +64,7 @@ export default function DashboardPage() {
           .neq('pipeline_status', 'approved')
           .order('created_at', { ascending: false })
         setBriefs(briefData ?? [])
-      }
+      } // end if profile.client_id
 
       setLoading(false)
     }
@@ -122,7 +127,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Show Countdown ── */}
-      {nextShow && (
+      {hasVans && nextShow && (
         <div className="rounded-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${clientColor}cc 0%, ${clientColor} 60%, ${clientColor}88 100%)` }}>
           <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -221,9 +226,9 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className={`grid grid-cols-1 gap-6 ${hasVans ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         {/* ── Upcoming Shows This Month ── */}
-        <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm p-5">
+        {hasVans && <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Tent className="h-4 w-4 text-zinc-500" />
@@ -254,10 +259,10 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* ── Next Video Shoot ── */}
-        <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm p-5">
+        {hasVans && <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Video className="h-4 w-4 text-zinc-500" />
@@ -283,7 +288,7 @@ export default function DashboardPage() {
           ) : (
             <p className="text-xs text-zinc-400">No upcoming shoots scheduled.</p>
           )}
-        </div>
+        </div>}
 
         {/* ── In Production ── */}
         <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm p-5">
