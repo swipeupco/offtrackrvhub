@@ -148,7 +148,17 @@ export function BrandingPanel({ onBrandingChange }: Props) {
     setLogoUrl(null)
   }
 
-  if (!branding) return null
+  if (!branding) return (
+    <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
+        <Palette className="h-4 w-4 text-zinc-500" />
+        <h2 className="font-semibold text-zinc-900 text-sm">Portal Branding</h2>
+      </div>
+      <div className="p-6">
+        <div className="h-4 w-48 bg-zinc-100 rounded animate-pulse" />
+      </div>
+    </div>
+  )
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">

@@ -38,6 +38,7 @@ export default function SettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<DeliverablesConfig | null>(null)
   const [delSaving, setDelSaving]     = useState(false)
 
+  const [hasVans, setHasVans] = useState(false)
   const [toast, setToast]   = useState<Toast | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const saveInFlight = useRef(false)
@@ -51,7 +52,7 @@ export default function SettingsPage() {
     const supabase = createClient()
     Promise.all([
       supabase.auth.getUser(),
-      supabase.from('profiles').select('*').single(),
+      supabase.from('profiles').select('*, clients(has_vans)').single(),
       supabase.from('deliverables_config').select('*').order('days_before_show', { ascending: false }),
     ]).then(([{ data: { user } }, profileRes, configsRes]) => {
       if (user) setCurrentEmail(user.email ?? '')
@@ -59,6 +60,8 @@ export default function SettingsPage() {
         setName(profileRes.data.name ?? '')
         setRole(profileRes.data.role ?? '')
         setAvatarUrl(profileRes.data.avatar_url ?? null)
+        const clientData = profileRes.data.clients as { has_vans: boolean } | null
+        setHasVans(clientData?.has_vans ?? false)
       }
       setConfigs((configsRes.data as DeliverablesConfig[]) ?? [])
       setConfigsLoading(false)
@@ -278,8 +281,8 @@ export default function SettingsPage() {
       {/* ── Portal Branding ── */}
       <BrandingPanel />
 
-      {/* ── Deliverables Template ── */}
-      <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+      {/* ── Deliverables Template — only for caravan/van clients ── */}
+      {hasVans && <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-zinc-500" />
@@ -323,7 +326,7 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Deliverable Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Deliverable' : 'Add Deliverable'} size="sm">

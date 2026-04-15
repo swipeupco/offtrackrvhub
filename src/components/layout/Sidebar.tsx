@@ -22,10 +22,12 @@ interface ClientConfig {
   products_label: string
 }
 
+const SWIPEUP_LOGO = 'https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp'
+
 const DEFAULT_CONFIG: ClientConfig = {
   color: '#14C29F',
-  logo_url: null,
-  name: 'Command Centre',
+  logo_url: SWIPEUP_LOGO,
+  name: 'SwipeUp.',
   has_shopify: false,
   has_vans: false,
   products_label: 'Products',
