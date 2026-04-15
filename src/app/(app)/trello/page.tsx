@@ -7,7 +7,9 @@ import {
   CheckCircle2, Play, Plus, X, Send, ExternalLink,
   MessageSquare, RotateCcw, Loader2, ChevronDown, Clock,
   Video, Image, Mail, LayoutGrid, Mic, FileText, CircleDot,
+  GripVertical, Upload,
 } from 'lucide-react'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -24,6 +26,8 @@ interface Brief {
   draft_url: string | null
   due_date: string | null
   client_id: string
+  sort_order?: number
+  cover_url?: string | null
 }
 
 interface Comment {
@@ -45,20 +49,17 @@ const CONTENT_TYPES = [
   { id: 'Other',     icon: CircleDot,  color: '#94a3b8' },
 ]
 
-function getColumn(status: string) {
-  if (status === 'client_review') return 'client_review'
-  if (status === 'approved')      return 'approved'
-  return 'in_progress'
-}
+const SIZES = ['1 x 1 Square', '4 x 5 Portrait', '9 x 16 Story/Reel', '16 x 9 Landscape']
 
 export default function CreativePipeline() {
-  const [briefs, setBriefs]             = useState<Brief[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [selectedBrief, setSelectedBrief]   = useState<Brief | null>(null)
-  const [showBriefModal, setShowBriefModal] = useState(false)
-  const [showAllApproved, setShowAllApproved] = useState(false)
+  const [briefs, setBriefs]                   = useState<Brief[]>([])
+  const [backlogOrder, setBacklogOrder]        = useState<Brief[]>([])
+  const [loading, setLoading]                  = useState(true)
+  const [selectedBrief, setSelectedBrief]      = useState<Brief | null>(null)
+  const [showBriefModal, setShowBriefModal]    = useState(false)
+  const [showAllApproved, setShowAllApproved]  = useState(false)
   const [showIdeaGenerator, setShowIdeaGenerator] = useState(false)
-  const [prefillBrief, setPrefillBrief] = useState<Partial<{ name: string; campaign: string; contentType: string; description: string; sizes: string[] }> | null>(null)
+  const [prefillBrief, setPrefillBrief]        = useState<Partial<{ name: string; campaign: string; contentType: string; description: string; sizes: string[] }> | null>(null)
 
   const { clientId, clientConfig, loading: clientLoading } = useActiveClient()
   const clientColor = clientConfig.color
@@ -80,7 +81,7 @@ export default function CreativePipeline() {
       .from('briefs')
       .select('*')
       .eq('client_id', cid)
-      .order('created_at', { ascending: false })
+      .order('sort_order', { ascending: true })
     setBriefs(briefData ?? [])
     setLoading(false)
   }
@@ -88,9 +89,7 @@ export default function CreativePipeline() {
   useEffect(() => {
     if (clientLoading) return
     if (!clientId) { setLoading(false); setBriefs([]); return }
-
     load(clientId)
-
     const supabase = createClient()
     const channel = supabase
       .channel('client-briefs-live')
@@ -100,15 +99,60 @@ export default function CreativePipeline() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, clientLoading])
 
+  // Keep backlogOrder in sync with briefs
+  useEffect(() => {
+    setBacklogOrder(
+      briefs
+        .filter(b => b.pipeline_status === 'backlog')
+        .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+    )
+  }, [briefs])
+
+  async function handleDragEnd(result: DropResult) {
+    if (!result.destination) return
+    const items = Array.from(backlogOrder)
+    const [moved] = items.splice(result.source.index, 1)
+    items.splice(result.destination.index, 0, moved)
+    setBacklogOrder(items)
+    // Persist new order
+    const supabase = createClient()
+    await Promise.all(
+      items.map((brief, index) =>
+        supabase.from('briefs').update({ sort_order: index }).eq('id', brief.id)
+      )
+    )
+  }
+
   async function handleApprove(briefId: string) {
     const supabase = createClient()
     await supabase
       .from('briefs')
       .update({ pipeline_status: 'approved', internal_status: 'approved_by_client' })
       .eq('id', briefId)
-    setBriefs(prev => prev.map(b =>
+
+    let newBriefs = briefs.map(b =>
       b.id === briefId ? { ...b, pipeline_status: 'approved', internal_status: 'approved_by_client' } : b
-    ))
+    )
+
+    // Auto-promote top backlog brief if in-production is now empty
+    const wasInProduction = briefs.filter(b =>
+      ['in_production', 'client_review', 'qa_review'].includes(b.pipeline_status)
+    )
+    const nextBacklog = briefs
+      .filter(b => b.pipeline_status === 'backlog')
+      .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))[0]
+
+    if (wasInProduction.length === 1 && nextBacklog) {
+      await supabase
+        .from('briefs')
+        .update({ pipeline_status: 'in_production', internal_status: 'in_production' })
+        .eq('id', nextBacklog.id)
+      newBriefs = newBriefs.map(b =>
+        b.id === nextBacklog.id ? { ...b, pipeline_status: 'in_production', internal_status: 'in_production' } : b
+      )
+    }
+
+    setBriefs(newBriefs)
     if (selectedBrief?.id === briefId) {
       setSelectedBrief(prev => prev ? { ...prev, pipeline_status: 'approved', internal_status: 'approved_by_client' } : null)
     }
@@ -128,20 +172,33 @@ export default function CreativePipeline() {
     }
   }
 
-  const inProgress    = briefs.filter(b => getColumn(b.pipeline_status) === 'in_progress')
-  const clientReview  = briefs.filter(b => getColumn(b.pipeline_status) === 'client_review')
-  const allApproved   = briefs.filter(b => getColumn(b.pipeline_status) === 'approved')
+  async function handleCoverUpload(briefId: string, file: File | null) {
+    if (!file) return
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const path = `brief-covers/${briefId}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('brief-assets')
+      .upload(path, file, { upsert: true })
+    if (uploadError) { console.error('Cover upload error:', uploadError); return }
+    const { data: { publicUrl } } = supabase.storage.from('brief-assets').getPublicUrl(path)
+    await supabase.from('briefs').update({ cover_url: publicUrl }).eq('id', briefId)
+    setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: publicUrl } : b))
+  }
+
+  const inProduction  = briefs.filter(b => ['in_production', 'client_review', 'qa_review'].includes(b.pipeline_status))
+  const allApproved   = briefs.filter(b => b.pipeline_status === 'approved')
   const approvedCards = showAllApproved ? allApproved : allApproved.slice(0, 10)
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Creative Requests</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Track and review all your creative work</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Creative Requests</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Track and review all your creative work</p>
+          </div>
           <button
             onClick={() => setShowBriefModal(true)}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
@@ -151,185 +208,202 @@ export default function CreativePipeline() {
             Create Brief
           </button>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="grid grid-cols-3 gap-5">
-          {[1,2,3].map(n => <div key={n} className="h-96 rounded-2xl bg-gray-200 animate-pulse" />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-5 items-start">
-
-          {/* ── Backlog ── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Column header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
-                <h3 className="text-sm font-semibold text-gray-800">Backlog</h3>
-                <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
-                  {inProgress.length}
-                </span>
-              </div>
-              <button
-                onClick={() => setShowBriefModal(true)}
-                className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Generate an Idea button */}
-            <div className="px-3 pt-3">
-              <button
-                onClick={() => setShowIdeaGenerator(true)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
-              >
-                ✨ Generate an Idea for me ✨
-              </button>
-            </div>
-
-            {/* Cards */}
-            <div className="p-3 space-y-3 min-h-[400px]">
-              {inProgress.map(brief => (
-                <BriefCard
-                  key={brief.id}
-                  brief={brief}
-                  clientColor={clientColor}
-                  onOpen={() => setSelectedBrief(brief)}
-                  onApprove={() => handleApprove(brief.id)}
-                  onRequestRevisions={() => handleRequestRevisions(brief.id)}
-                />
-              ))}
-              {inProgress.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                  <p className="text-xs text-gray-400">No briefs in backlog</p>
-                </div>
-              )}
-            </div>
+        {loading ? (
+          <div className="grid grid-cols-3 gap-5">
+            {[1,2,3].map(n => <div key={n} className="h-96 rounded-2xl bg-gray-200 animate-pulse" />)}
           </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-5 items-start">
 
-          {/* ── In Review ── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Column header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0" />
-                <h3 className="text-sm font-semibold text-gray-800">In Review</h3>
-                <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
-                  {clientReview.length}
-                </span>
-              </div>
-              <div className="h-7 w-7" />
-            </div>
-
-            {/* Cards */}
-            <div className="p-3 space-y-3 min-h-[400px]">
-              {clientReview.map(brief => (
-                <BriefCard
-                  key={brief.id}
-                  brief={brief}
-                  clientColor={clientColor}
-                  reviewMode
-                  onOpen={() => setSelectedBrief(brief)}
-                  onApprove={() => handleApprove(brief.id)}
-                  onRequestRevisions={() => handleRequestRevisions(brief.id)}
-                />
-              ))}
-              {clientReview.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                  <p className="text-xs text-gray-400">Nothing to review yet</p>
+            {/* ── Backlog ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-gray-800">Backlog</h3>
+                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                    {backlogOrder.length}
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Approved by Client ── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Column header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                <h3 className="text-sm font-semibold text-gray-800">Approved by Client</h3>
-                <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
-                  {allApproved.length}
-                </span>
-              </div>
-              <div className="h-7 w-7" />
-            </div>
-
-            {/* Cards */}
-            <div className="p-3 space-y-3 min-h-[400px]">
-              {approvedCards.map(brief => (
-                <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
-              ))}
-              {allApproved.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                  <p className="text-xs text-gray-400">No approved briefs yet</p>
-                </div>
-              )}
-              {allApproved.length > 10 && (
                 <button
-                  onClick={() => setShowAllApproved(v => !v)}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowBriefModal(true)}
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
                 >
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllApproved ? 'rotate-180' : ''}`} />
-                  {showAllApproved ? 'Show less' : `See all ${allApproved.length} approved`}
+                  <Plus className="h-4 w-4" />
                 </button>
-              )}
+              </div>
+
+              <div className="px-3 pt-3">
+                <button
+                  onClick={() => setShowIdeaGenerator(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                  style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
+                >
+                  ✨ Generate an Idea for me ✨
+                </button>
+              </div>
+
+              <Droppable droppableId="backlog">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="p-3 space-y-3 min-h-[300px]"
+                  >
+                    {backlogOrder.map((brief, index) => (
+                      <Draggable key={brief.id} draggableId={brief.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            style={provided.draggableProps.style}
+                          >
+                            <BriefCard
+                              brief={brief}
+                              clientColor={clientColor}
+                              dragHandleProps={provided.dragHandleProps}
+                              isDragging={snapshot.isDragging}
+                              onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
+                              onApprove={() => handleApprove(brief.id)}
+                              onRequestRevisions={() => handleRequestRevisions(brief.id)}
+                              onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {backlogOrder.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                        <p className="text-xs text-gray-400">No briefs in backlog</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+
+            {/* ── In Production ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-gray-800">In Production</h3>
+                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                    {inProduction.length}
+                  </span>
+                </div>
+                <div className="h-7 w-7" />
+              </div>
+              <div className="p-3 space-y-3 min-h-[300px]">
+                {inProduction.map(brief => (
+                  <BriefCard
+                    key={brief.id}
+                    brief={brief}
+                    clientColor={clientColor}
+                    reviewMode
+                    onOpen={() => setSelectedBrief(brief)}
+                    onApprove={() => handleApprove(brief.id)}
+                    onRequestRevisions={() => handleRequestRevisions(brief.id)}
+                    onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
+                  />
+                ))}
+                {inProduction.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                    <p className="text-xs text-gray-400">Nothing in production yet</p>
+                    <p className="text-[11px] text-gray-300 mt-1">Top backlog item auto-promotes here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Approved ── */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-gray-800">Approved</h3>
+                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                    {allApproved.length}
+                  </span>
+                </div>
+                <div className="h-7 w-7" />
+              </div>
+              <div className="p-3 space-y-3 min-h-[300px]">
+                {approvedCards.map(brief => (
+                  <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
+                ))}
+                {allApproved.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                    <p className="text-xs text-gray-400">No approved briefs yet</p>
+                  </div>
+                )}
+                {allApproved.length > 10 && (
+                  <button
+                    onClick={() => setShowAllApproved(v => !v)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllApproved ? 'rotate-180' : ''}`} />
+                    {showAllApproved ? 'Show less' : `See all ${allApproved.length} approved`}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Brief detail side panel */}
-      {selectedBrief && (
-        <BriefPanel
-          brief={selectedBrief}
-          clientColor={clientColor}
-          onClose={() => setSelectedBrief(null)}
-          onApprove={() => handleApprove(selectedBrief.id)}
-          onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
-        />
-      )}
+        {/* Brief detail side panel */}
+        {selectedBrief && (
+          <BriefPanel
+            brief={selectedBrief}
+            clientColor={clientColor}
+            onClose={() => setSelectedBrief(null)}
+            onApprove={() => handleApprove(selectedBrief.id)}
+            onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
+          />
+        )}
 
-      {/* Create Brief modal */}
-      {showBriefModal && clientId && (
-        <CreateBriefModal
-          clientId={clientId}
-          clientColor={clientColor}
-          prefill={prefillBrief}
-          onClose={() => { setShowBriefModal(false); setPrefillBrief(null) }}
-          onCreated={() => { setShowBriefModal(false); setPrefillBrief(null); load(clientId, true) }}
-        />
-      )}
+        {/* Create Brief modal */}
+        {showBriefModal && clientId && (
+          <CreateBriefModal
+            clientId={clientId}
+            clientColor={clientColor}
+            prefill={prefillBrief}
+            onClose={() => { setShowBriefModal(false); setPrefillBrief(null) }}
+            onCreated={() => { setShowBriefModal(false); setPrefillBrief(null); load(clientId, true) }}
+          />
+        )}
 
-      {/* Idea Generator modal */}
-      {showIdeaGenerator && (
-        <IdeaGeneratorModal
-          clientColor={clientColor}
-          onClose={() => setShowIdeaGenerator(false)}
-          onBriefGenerated={(brief) => {
-            setShowIdeaGenerator(false)
-            setPrefillBrief(brief)
-            setShowBriefModal(true)
-          }}
-        />
-      )}
-    </div>
+        {/* Idea Generator modal */}
+        {showIdeaGenerator && (
+          <IdeaGeneratorModal
+            clientColor={clientColor}
+            onClose={() => setShowIdeaGenerator(false)}
+            onBriefGenerated={(brief) => {
+              setShowIdeaGenerator(false)
+              setPrefillBrief(brief)
+              setShowBriefModal(true)
+            }}
+          />
+        )}
+      </div>
+    </DragDropContext>
   )
 }
 
 // ─── Brief Card ───────────────────────────────────────────────────────────────
 
-function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onRequestRevisions }: {
+function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload }: {
   brief: Brief
   clientColor: string
   reviewMode?: boolean
+  dragHandleProps?: Record<string, unknown> | null
+  isDragging?: boolean
   onOpen: () => void
   onApprove: () => void
   onRequestRevisions: () => void
+  onCoverUpload?: (file: File | null) => void
 }) {
   const [approving, setApproving]     = useState(false)
   const [revisioning, setRevisioning] = useState(false)
@@ -351,34 +425,75 @@ function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onReques
 
   return (
     <div
-      className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 cursor-pointer hover:shadow-md transition-all"
+      className={`rounded-2xl bg-white border border-gray-100 p-4 cursor-pointer transition-all ${isDragging ? 'shadow-2xl rotate-1 scale-105' : 'shadow-sm hover:shadow-md'}`}
       onClick={onOpen}
     >
+      {/* Drag handle row */}
+      {dragHandleProps && (
+        <div className="flex items-center justify-end mb-1.5" onClick={e => e.stopPropagation()}>
+          <div
+            {...(dragHandleProps as Record<string, unknown>)}
+            className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-gray-200 hover:text-gray-400 transition-colors"
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+        </div>
+      )}
+
       {/* Thumbnail / Cover */}
-      <div
-        className="h-28 rounded-xl mb-3 flex items-center justify-center overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)` }}
-      >
-        {typeInfo ? (
-          <typeInfo.icon className="h-10 w-10 opacity-30" style={{ color: typeInfo.color }} />
+      <div className="relative h-28 rounded-xl mb-3 overflow-hidden group/cover" onClick={e => e.stopPropagation()}>
+        {brief.cover_url ? (
+          <img src={brief.cover_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-gray-200 opacity-50" />
+          <div
+            className="h-full w-full flex items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)` }}
+          >
+            {typeInfo ? (
+              <typeInfo.icon className="h-10 w-10 opacity-30" style={{ color: typeInfo.color }} />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-gray-200 opacity-50" />
+            )}
+          </div>
+        )}
+
+        {/* Campaign badge — top right */}
+        {brief.campaign && (
+          <div className="absolute top-2 right-2 rounded-lg bg-black/60 backdrop-blur-sm px-2 py-1 max-w-[130px]">
+            <p className="text-[10px] font-semibold text-white truncate">{brief.campaign}</p>
+          </div>
+        )}
+
+        {/* Change cover — hover */}
+        {onCoverUpload && (
+          <label className="absolute bottom-2 right-2 opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
+            <div className="rounded-lg bg-black/60 backdrop-blur-sm px-2 py-1 flex items-center gap-1">
+              <Upload className="h-3 w-3 text-white" />
+              <span className="text-[10px] font-semibold text-white">Change cover</span>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => onCoverUpload(e.target.files?.[0] ?? null)}
+              onClick={e => e.stopPropagation()}
+            />
+          </label>
         )}
       </div>
 
       {/* Content type badge */}
       {typeInfo && (
         <span
-          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold mb-3"
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold mb-2"
           style={{ backgroundColor: `${typeInfo.color}18`, color: typeInfo.color }}
         >
           {typeInfo.id}
         </span>
       )}
 
-      {/* Title + campaign */}
+      {/* Title */}
       <p className="text-sm font-semibold text-gray-800 leading-snug">{brief.name}</p>
-      {brief.campaign && <p className="text-xs text-gray-400 mt-0.5 mb-2">{brief.campaign}</p>}
 
       {/* Status badges */}
       <div className="flex gap-1.5 flex-wrap mt-2 mb-3">
@@ -435,7 +550,6 @@ function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onReques
         </button>
       </div>
 
-      {/* Request revisions */}
       {reviewMode && hasDraft && !isRevisions && (
         <button
           onClick={e => { e.stopPropagation(); requestRevisions() }}
@@ -540,9 +654,9 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     setSending(false)
   }
 
-  const typeInfo  = CONTENT_TYPES.find(t => t.id === brief.content_type)
-  const hasDraft  = !!brief.draft_url
-  const isReview  = brief.pipeline_status === 'client_review'
+  const typeInfo   = CONTENT_TYPES.find(t => t.id === brief.content_type)
+  const hasDraft   = !!brief.draft_url
+  const isReview   = ['in_production', 'client_review', 'qa_review'].includes(brief.pipeline_status)
   const isApproved = brief.pipeline_status === 'approved'
 
   return (
@@ -550,7 +664,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full">
 
-        {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex-1 min-w-0">
@@ -570,7 +683,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                 )}
                 {isReview && !isApproved && (
                   <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 bg-blue-50 text-blue-600">
-                    In Review
+                    In Production
                   </span>
                 )}
               </div>
@@ -580,7 +693,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
             </button>
           </div>
 
-          {/* Draft link */}
           {hasDraft ? (
             <a
               href={brief.draft_url!}
@@ -599,7 +711,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
             </div>
           )}
 
-          {/* Approve + Request Revisions */}
           {isReview && hasDraft && !isApproved && (
             <div className="flex gap-2 mt-3">
               <button
@@ -620,7 +731,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           )}
         </div>
 
-        {/* Brief description */}
         {brief.description && (
           <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Brief Details</p>
@@ -630,14 +740,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           </div>
         )}
 
-        {/* Comments */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="px-6 py-3 border-b border-gray-100 flex-shrink-0">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               Comments {comments.length > 0 && `(${comments.length})`}
             </p>
           </div>
-
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             {comments.map(c => (
               <div key={c.id} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
@@ -657,7 +765,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
             )}
             <div ref={endRef} />
           </div>
-
           <div className="border-t border-gray-100 p-4 flex-shrink-0">
             <form onSubmit={sendComment} className="flex gap-2">
               <input
@@ -666,7 +773,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                 onChange={e => setNewComment(e.target.value)}
                 placeholder="Leave feedback or ask a question…"
                 className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
               />
               <button
                 type="submit"
@@ -702,8 +808,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
   const [saving, setSaving]           = useState(false)
   const [aiPrompt, setAiPrompt]       = useState('')
   const [aiLoading, setAiLoading]     = useState(false)
-
-  const SIZES = ['1 x 1 Square', '4 x 5 Portrait', '9 x 16 Story/Reel', '16 x 9 Landscape']
 
   function toggleSize(s: string) {
     setSizes(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
@@ -750,8 +854,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">Create Brief</h2>
           <button onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 transition-colors">
@@ -760,7 +862,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* AI Generator */}
           <div className="rounded-xl bg-violet-50 border border-violet-100 p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-base">✨</span>
@@ -786,7 +887,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Title + Campaign side by side */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-gray-500 block mb-1.5">Title *</label>
@@ -811,7 +911,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               </div>
             </div>
 
-            {/* Brief */}
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-1.5">Brief <span className="font-normal text-gray-400">— keep it short</span></label>
               <textarea
@@ -823,7 +922,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               />
             </div>
 
-            {/* Content Type */}
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-2">Content Type</label>
               <div className="flex gap-2 flex-wrap">
@@ -848,7 +946,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               </div>
             </div>
 
-            {/* Sizes */}
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-2">Sizes <span className="font-normal text-gray-400">(multi-select)</span></label>
               <div className="flex gap-2 flex-wrap">
@@ -869,7 +966,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               </div>
             </div>
 
-            {/* Reference URLs */}
             <div>
               <label className="text-xs font-semibold text-gray-500 block mb-2">Reference URLs</label>
               {refUrls.map((url, i) => (
@@ -891,7 +987,6 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               </button>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3 pt-2 border-t border-gray-100">
               <button
                 type="button"
@@ -925,19 +1020,19 @@ function IdeaGeneratorModal({ clientColor, onClose, onBriefGenerated }: {
   onBriefGenerated: (brief: { name: string; campaign: string; contentType: string; description: string; sizes: string[] }) => void
 }) {
   const CONTENT_GOAL_OPTIONS = [
-    { id: 'Video', label: 'Video Ad', emoji: '🎬' },
-    { id: 'Graphic', label: 'Graphic / Static', emoji: '🖼️' },
-    { id: 'EDM', label: 'Email Campaign', emoji: '📧' },
-    { id: 'Script', label: 'Founder Ad / UGC', emoji: '🎤' },
-    { id: 'Voiceover', label: 'Organic Content', emoji: '📱' },
-    { id: 'Signage', label: 'Paid Ad', emoji: '💰' },
+    { id: 'Video',     label: 'Video Ad',        emoji: '🎬' },
+    { id: 'Graphic',   label: 'Graphic / Static', emoji: '🖼️' },
+    { id: 'EDM',       label: 'Email Campaign',   emoji: '📧' },
+    { id: 'Script',    label: 'Founder Ad / UGC', emoji: '🎤' },
+    { id: 'Voiceover', label: 'Organic Content',  emoji: '📱' },
+    { id: 'Signage',   label: 'Paid Ad',          emoji: '💰' },
   ]
 
   const [selectedType, setSelectedType] = useState('')
-  const [goal, setGoal] = useState('')
-  const [ideas, setIdeas] = useState<Array<{ name: string; campaign: string; contentType: string; description: string; sizes: string[] }> | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'input' | 'ideas'>('input')
+  const [goal, setGoal]                 = useState('')
+  const [ideas, setIdeas]               = useState<Array<{ name: string; campaign: string; contentType: string; description: string; sizes: string[] }> | null>(null)
+  const [loading, setLoading]           = useState(false)
+  const [step, setStep]                 = useState<'input' | 'ideas'>('input')
 
   async function generateIdeas() {
     if (!goal.trim()) return
@@ -953,11 +1048,11 @@ function IdeaGeneratorModal({ clientColor, onClose, onBriefGenerated }: {
         }).then(r => r.json())
       ))
       setIdeas(results.map(d => ({
-        name: d.title ?? 'Untitled',
-        campaign: d.campaign ?? '',
+        name:        d.title ?? 'Untitled',
+        campaign:    d.campaign ?? '',
         contentType: d.contentType ?? selectedType,
         description: d.brief ?? '',
-        sizes: d.sizes ?? [],
+        sizes:       d.sizes ?? [],
       })))
       setStep('ideas')
     } catch {}
