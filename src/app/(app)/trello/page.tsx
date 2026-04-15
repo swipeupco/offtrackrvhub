@@ -249,25 +249,47 @@ export default function CreativePipeline() {
 
   async function handleCoverUpload(briefId: string, file: File | null) {
     if (!file) return
+
+    // Compress image to max 800px wide, 0.82 quality JPEG before uploading
+    const compressed = await new Promise<Blob>((resolve, reject) => {
+      const img = document.createElement('img')
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 800
+        const scale = img.width > MAX ? MAX / img.width : 1
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.82)
+      }
+      img.onerror = reject
+      img.src = url
+    })
+
     const supabase = createClient()
-    const ext  = file.name.split('.').pop() ?? 'jpg'
-    const path = `brief-covers/${briefId}-${Date.now()}.${ext}`
+    const path = `brief-covers/${briefId}.jpg`
     const { error: uploadError } = await supabase.storage
       .from('brief-assets')
-      .upload(path, file, { upsert: true, contentType: file.type })
+      .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
     if (uploadError) {
       console.error('Cover upload error:', uploadError)
-      alert(`Cover upload failed: ${uploadError.message}\n\nMake sure you've created the "brief-assets" storage bucket in Supabase (Settings → Storage → New bucket, set to Public).`)
+      alert(`Cover upload failed: ${uploadError.message}`)
       return
     }
+    // Cache-bust the URL so the card re-renders with the new image
     const { data: { publicUrl } } = supabase.storage.from('brief-assets').getPublicUrl(path)
-    const { error: updateError } = await supabase.from('briefs').update({ cover_url: publicUrl }).eq('id', briefId)
+    const bustedUrl = `${publicUrl}?t=${Date.now()}`
+
+    const { error: updateError } = await supabase.from('briefs').update({ cover_url: bustedUrl }).eq('id', briefId)
     if (updateError) {
       console.error('Cover DB update error:', updateError)
-      alert(`Saved image but couldn't update the brief: ${updateError.message}\n\nMake sure you've run: ALTER TABLE briefs ADD COLUMN IF NOT EXISTS cover_url text;`)
+      alert(`Saved image but couldn't update the brief: ${updateError.message}`)
       return
     }
-    setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: publicUrl } : b))
+    setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: bustedUrl } : b))
   }
 
   const inProduction  = briefs.filter(b => ['in_production', 'client_review', 'qa_review'].includes(b.pipeline_status))
