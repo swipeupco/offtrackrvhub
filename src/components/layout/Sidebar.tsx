@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Tent, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
-  BarChart2, Package, ChevronDown, ExternalLink,
+  BarChart2, Package, ChevronDown, ExternalLink, Layers, ClipboardList,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
@@ -43,15 +43,17 @@ export function Sidebar() {
   }
 
   const nav = [
-    { href: '/dashboard',                                label: 'Dashboard',        icon: LayoutDashboard, show: true },
-    { href: '/trello',                                   label: 'Creative Pipeline', icon: Columns2,       show: true },
-    { href: '/calendar',                                 label: 'Calendar',         icon: CalendarDays,   show: true },
-    { href: '/shows',                                    label: 'Shows',            icon: Tent,           show: has_vans },
-    { href: '/shoots',                                   label: 'Video Shoots',     icon: Video,          show: has_vans },
-    { href: has_vans ? '/inventory' : '/products',       label: products_label,     icon: has_vans ? Caravan : Package, show: true },
-    { href: '/shopify',                                  label: 'Shopify',          icon: ShoppingBag,    show: has_shopify },
-    { href: '/social',                                   label: 'Social',           icon: BarChart2,      show: true },
-    { href: '/settings',                                 label: 'Settings',         icon: Settings,       show: true },
+    { href: '/dashboard',                                label: 'Dashboard',          icon: LayoutDashboard, show: true },
+    { href: '/campaigns',                                label: 'Campaigns',          icon: Layers,          show: true },
+    { href: '/trello',                                   label: 'Creative Requests',  icon: Columns2,        show: true },
+    { href: '/calendar',                                 label: 'Marketing Calendar', icon: CalendarDays,    show: true },
+    { href: '/todo',                                     label: 'My To Do List',      icon: ClipboardList,   show: true },
+    { href: '/shows',                                    label: 'Shows',              icon: Tent,            show: has_vans },
+    { href: '/shoots',                                   label: 'Video Shoots',       icon: Video,           show: has_vans },
+    { href: has_vans ? '/inventory' : '/products',       label: products_label,       icon: has_vans ? Caravan : Package, show: true },
+    { href: '/shopify',                                  label: 'Shopify',            icon: ShoppingBag,     show: has_shopify },
+    { href: '/social',                                   label: 'Paid Ads & Social',  icon: BarChart2,       show: true },
+    { href: '/settings',                                 label: 'Settings',           icon: Settings,        show: true },
   ].filter(item => item.show)
 
   // Current client entry for the admin switcher button

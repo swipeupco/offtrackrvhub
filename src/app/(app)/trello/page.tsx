@@ -140,15 +140,23 @@ export default function CreativePipeline() {
     <div className="p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900">Creative Pipeline</h1>
-        <button
-          onClick={() => setShowBriefModal(true)}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: clientColor }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Create Brief
-        </button>
+        <h1 className="text-2xl font-bold text-zinc-900">Creative Requests</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {/* TODO: AI brief generation */}}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            ✨ Generate an Idea
+          </button>
+          <button
+            onClick={() => setShowBriefModal(true)}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: clientColor }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Create Brief
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -163,7 +171,7 @@ export default function CreativePipeline() {
             <div className="flex items-center justify-between rounded-xl bg-zinc-900 px-4 py-3">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                <h3 className="text-sm font-semibold text-white">In Production</h3>
+                <h3 className="text-sm font-semibold text-white">Backlog</h3>
               </div>
               <span className="rounded-full bg-zinc-700 text-zinc-300 text-[10px] font-bold px-2 py-0.5">
                 {inProgress.length}
@@ -193,7 +201,7 @@ export default function CreativePipeline() {
             <div className="flex items-center justify-between rounded-xl bg-blue-600 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Play className="h-3.5 w-3.5 text-white" />
-                <h3 className="text-sm font-semibold text-white">Ready for Review</h3>
+                <h3 className="text-sm font-semibold text-white">In Review</h3>
               </div>
               <span className="rounded-full bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5">
                 {clientReview.length}
@@ -227,7 +235,7 @@ export default function CreativePipeline() {
             >
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-white" />
-                <h3 className="text-sm font-semibold text-white">Approved</h3>
+                <h3 className="text-sm font-semibold text-white">Approved by Client</h3>
               </div>
               <span className="rounded-full bg-white/20 text-white text-[10px] font-bold px-2 py-0.5">
                 {allApproved.length}
@@ -309,7 +317,11 @@ function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onReques
   }
 
   return (
-    <div className="rounded-xl bg-white border border-zinc-200 p-4 shadow-sm space-y-3">
+    <div
+      className="rounded-xl bg-white border border-zinc-200 p-4 shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-shadow"
+      style={{ borderLeft: `3px solid ${typeInfo?.color ?? '#e4e4e7'}` }}
+      onClick={onOpen}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-zinc-800 leading-snug">{brief.name}</p>
@@ -335,17 +347,8 @@ function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onReques
         )}
       </div>
 
-      {/* Edit / comment button */}
-      <button
-        onClick={onOpen}
-        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
-      >
-        <MessageSquare className="h-3 w-3" />
-        View Brief & Comment
-      </button>
-
       {/* View Draft + Approve */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
         {hasDraft ? (
           <a
             href={brief.draft_url!}
@@ -384,7 +387,7 @@ function BriefCard({ brief, clientColor, reviewMode, onOpen, onApprove, onReques
       {/* Request revisions (only in review mode with a draft) */}
       {reviewMode && hasDraft && !isRevisions && (
         <button
-          onClick={requestRevisions}
+          onClick={e => { e.stopPropagation(); requestRevisions() }}
           disabled={revisioning}
           className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-200 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
         >

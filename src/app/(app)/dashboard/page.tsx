@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { isShowComplete, daysUntilStart, parseLocalDate } from '@/lib/date-utils'
-import { Tent, Play, Clock, Video, ExternalLink, CheckCircle2, RefreshCw, Loader2 } from 'lucide-react'
+import { Tent, Play, Clock, Video, ExternalLink, CheckCircle2, RefreshCw, Loader2, CalendarDays } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import Link from 'next/link'
 import type { Show, VideoShoot } from '@/types'
@@ -132,7 +132,7 @@ export default function DashboardPage() {
           <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
-                <Tent className="h-3.5 w-3.5" /> Next Show
+                <CalendarDays className="h-3.5 w-3.5" /> Next Campaign
               </p>
               <h2 className="text-xl font-bold text-white mt-0.5">{nextShow.name}</h2>
               <p className="text-sm text-white/80 mt-0.5">
@@ -172,48 +172,31 @@ export default function DashboardPage() {
           <Link href="/trello" className="text-sm hover:underline" style={{ color: clientColor }}>View pipeline</Link>
         </div>
         {readyForReview.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {readyForReview.map(brief => (
-              <div key={brief.id} className="rounded-2xl bg-white border-2 border-amber-200 p-4 shadow-sm space-y-3">
-                <div>
-                  <p className="text-sm font-semibold text-zinc-800 leading-snug">{brief.name}</p>
-                  {brief.campaign && <p className="text-xs text-zinc-500 mt-0.5">{brief.campaign}</p>}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {brief.content_type && (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600">
-                      {brief.content_type}
-                    </span>
-                  )}
-                  {brief.due_date && (
-                    <span className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600">
-                      <Clock className="h-2.5 w-2.5" />
-                      {format(new Date(brief.due_date), 'd MMM')}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
+          <div className="rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
+            {readyForReview.map((brief, i) => (
+              <div key={brief.id} className={`flex items-center gap-4 px-5 py-4 ${i !== 0 ? 'border-t border-zinc-100' : ''}`}>
+                <span className="h-2 w-2 rounded-full flex-shrink-0 bg-amber-400" />
+                <p className="flex-1 text-sm font-medium text-zinc-800 truncate">{brief.name}</p>
+                {brief.draft_url && (
                   <a
-                    href={brief.draft_url!}
+                    href={brief.draft_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: clientColor }}
+                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors whitespace-nowrap"
                   >
-                    <Play className="h-3.5 w-3.5" />
-                    Review Draft
+                    <Play className="h-3 w-3" />
+                    Review Here
                   </a>
-                  <button
-                    onClick={() => handleApprove(brief.id)}
-                    disabled={approvingId === brief.id}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold bg-green-600 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {approvingId === brief.id
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <CheckCircle2 className="h-3.5 w-3.5" />}
-                    {approvingId === brief.id ? 'Approving…' : 'Approve'}
-                  </button>
-                </div>
+                )}
+                <button
+                  onClick={() => handleApprove(brief.id)}
+                  disabled={approvingId === brief.id}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                  style={{ backgroundColor: clientColor }}
+                >
+                  {approvingId === brief.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Approve
+                </button>
               </div>
             ))}
           </div>
