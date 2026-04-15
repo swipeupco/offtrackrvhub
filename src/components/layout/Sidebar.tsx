@@ -21,8 +21,9 @@ export function Sidebar() {
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
   // All config now comes from context — updates instantly when branding saved
-  const { clientId, clientConfig, isAdmin, clients, setClientId, loading: clientLoading } = useActiveClient()
+  const { clientId, clientConfig, isAdmin, isStaff, clients, setClientId, loading: clientLoading } = useActiveClient()
   const { color, logo_url, name, has_shopify, has_vans, products_label } = clientConfig
+  const canSwitch = (isAdmin || isStaff) && clients.length > 1
 
   useEffect(() => {
     const supabase = createClient()
@@ -75,7 +76,7 @@ export function Sidebar() {
 
       {/* Logo / Client Switcher */}
       <div className="border-b border-zinc-800">
-        {isAdmin ? (
+        {canSwitch ? (
           <div className="relative">
             <button
               onClick={() => setSwitcherOpen(o => !o)}
@@ -171,7 +172,7 @@ export function Sidebar() {
           <NotificationBell />
           <span className="text-sm font-medium text-zinc-400">Notifications</span>
         </div>
-        {isAdmin && (
+        {isAdmin && !isStaff && (
           <a
             href="https://hub.swipeupco.com"
             target="_blank"

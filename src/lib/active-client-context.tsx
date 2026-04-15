@@ -37,6 +37,7 @@ interface ActiveClientContextValue {
   clientId: string | null
   clientConfig: ClientConfig
   isAdmin: boolean
+  isStaff: boolean
   clients: ClientOption[]
   setClientId: (id: string) => void
   updateClientConfig: (updates: Partial<ClientConfig>) => void
@@ -47,6 +48,7 @@ const ActiveClientContext = createContext<ActiveClientContextValue>({
   clientId: null,
   clientConfig: DEFAULT_CONFIG,
   isAdmin: false,
+  isStaff: false,
   clients: [],
   setClientId: () => {},
   updateClientConfig: () => {},
@@ -63,6 +65,7 @@ export function ActiveClientProvider({ children }: { children: React.ReactNode }
   const [clientId, setClientIdState]    = useState<string | null>(null)
   const [clientConfig, setClientConfig] = useState<ClientConfig>(DEFAULT_CONFIG)
   const [isAdmin, setIsAdmin]           = useState(false)
+  const [isStaff, setIsStaff]           = useState(false)
   const [clients, setClients]           = useState<ClientOption[]>([])
   const [loading, setLoading]           = useState(true)
 
@@ -86,7 +89,7 @@ export function ActiveClientProvider({ children }: { children: React.ReactNode }
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('client_id, is_admin')
+        .select('client_id, is_admin, is_staff')
         .eq('id', user.id)
         .single()
 
@@ -106,6 +109,25 @@ export function ActiveClientProvider({ children }: { children: React.ReactNode }
           setClientIdState(match.id)
         } else if (allClients && allClients.length > 0) {
           setClientIdState(allClients[0].id)
+        }
+      } else if (profile.is_staff) {
+        setIsStaff(true)
+        // Load only the clients this staff member has been granted access to
+        const { data: accessRows } = await supabase
+          .from('staff_client_access')
+          .select('client_id, clients(id, name, slug, color, logo_url)')
+          .eq('staff_id', user.id)
+        const accessibleClients = (accessRows ?? [])
+          .map((r: any) => r.clients)
+          .filter(Boolean) as ClientOption[]
+        setClients(accessibleClients)
+
+        const stored = localStorage.getItem(STORAGE_KEY)
+        const match = accessibleClients.find(c => c.id === stored)
+        if (match) {
+          setClientIdState(match.id)
+        } else if (accessibleClients.length > 0) {
+          setClientIdState(accessibleClients[0].id)
         }
       } else {
         setClientIdState(profile.client_id ?? null)
@@ -137,6 +159,7 @@ export function ActiveClientProvider({ children }: { children: React.ReactNode }
       clientId,
       clientConfig,
       isAdmin,
+      isStaff,
       clients,
       setClientId,
       updateClientConfig,
