@@ -102,7 +102,17 @@ export default function CreativePipeline() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const supabase = createClient()
+    // Re-sync the brief list whenever any brief changes (status updates from the hub)
+    const channel = supabase
+      .channel('client-briefs-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => load(true))
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Approve: updates BOTH pipeline_status → approved AND internal_status → approved_by_client
   async function handleApprove(briefId: string) {
