@@ -255,9 +255,22 @@ export default function CreativePipeline() {
 
   async function handleDeleteBrief(briefId: string) {
     const supabase = createClient()
+
+    // Delete related records first (cascade handles DB-side too, this is belt-and-suspenders)
     await supabase.from('brief_comments').delete().eq('brief_id', briefId)
+    await supabase.from('notifications').delete().eq('link', `/trello?briefId=${briefId}`)
+
+    // Remove cover from storage (best-effort)
     await supabase.storage.from('brief-assets').remove([`brief-covers/${briefId}.jpg`])
-    await supabase.from('briefs').delete().eq('id', briefId)
+
+    // Delete the brief itself
+    const { error } = await supabase.from('briefs').delete().eq('id', briefId)
+    if (error) {
+      console.error('Failed to delete brief:', error)
+      alert(`Could not delete brief: ${error.message}`)
+      return
+    }
+
     setBriefs(prev => prev.filter(b => b.id !== briefId))
     setSelectedBrief(null)
   }
