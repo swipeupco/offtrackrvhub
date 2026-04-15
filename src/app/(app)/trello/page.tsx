@@ -1002,9 +1002,27 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     View Draft
                   </a>
                 ) : (
-                  <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-400 bg-gray-50 border border-dashed border-gray-200 w-full">
-                    <Clock className="h-4 w-4" />
-                    Draft coming soon
+                  <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-gray-50 border border-dashed w-full"
+                    style={isReview ? { borderColor: `${clientColor}60`, color: clientColor } : { borderColor: '#e5e7eb', color: '#9ca3af' }}>
+                    {isReview ? (
+                      <>
+                        <span className="relative flex h-2 w-2 flex-shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: clientColor }} />
+                          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: clientColor }} />
+                        </span>
+                        We&apos;re working on it
+                        <span className="inline-flex gap-0.5">
+                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="h-4 w-4" />
+                        Draft coming soon
+                      </>
+                    )}
                   </div>
                 )}
                 {isReview && hasDraft && !isApproved && (
