@@ -117,15 +117,17 @@ export default function CreativePipeline() {
   // Request revisions: flags internal board, keeps brief in client_review
   async function handleRequestRevisions(briefId: string) {
     const supabase = createClient()
+    // Brief stays in client_review column — only internal_status changes
+    // Both fields written together in a single update call
     await supabase
       .from('briefs')
-      .update({ internal_status: 'revisions_required' })
+      .update({ pipeline_status: 'client_review', internal_status: 'revisions_required' })
       .eq('id', briefId)
     setBriefs(prev => prev.map(b =>
-      b.id === briefId ? { ...b, internal_status: 'revisions_required' } : b
+      b.id === briefId ? { ...b, pipeline_status: 'client_review', internal_status: 'revisions_required' } : b
     ))
     if (selectedBrief?.id === briefId) {
-      setSelectedBrief(prev => prev ? { ...prev, internal_status: 'revisions_required' } : null)
+      setSelectedBrief(prev => prev ? { ...prev, pipeline_status: 'client_review', internal_status: 'revisions_required' } : null)
     }
   }
 
