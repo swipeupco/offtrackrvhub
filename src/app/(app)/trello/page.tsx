@@ -124,6 +124,12 @@ export default function CreativePipeline() {
     }
 
     setBriefs(all)
+    // Keep selectedBrief in sync so edits on the client portal appear on the hub in real-time
+    setSelectedBrief(prev => {
+      if (!prev) return null
+      const updated = all.find(b => b.id === prev.id)
+      return updated ?? prev
+    })
     setLoading(false)
   }
 
@@ -248,48 +254,86 @@ export default function CreativePipeline() {
   }
 
   async function handleCoverUpload(briefId: string, file: File | null) {
-    if (!file) return
+    console.log('[cover] handleCoverUpload called', { briefId, file: file?.name, size: file?.size })
+    if (!file) { console.warn('[cover] no file, aborting'); return }
+
+    const MAX_MB = 10
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(`Image is too large. Please choose a file under ${MAX_MB}MB.`)
+      return
+    }
+
+    const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      alert(`Unsupported file type "${file.type}". Please upload a JPG, PNG, WebP, or GIF.`)
+      return
+    }
 
     // Compress image to max 800px wide, 0.82 quality JPEG before uploading
-    const compressed = await new Promise<Blob>((resolve, reject) => {
-      const img = document.createElement('img')
-      const url = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(url)
-        const MAX = 800
-        const scale = img.width > MAX ? MAX / img.width : 1
-        const canvas = document.createElement('canvas')
-        canvas.width  = Math.round(img.width  * scale)
-        canvas.height = Math.round(img.height * scale)
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.82)
-      }
-      img.onerror = reject
-      img.src = url
-    })
+    let compressed: Blob
+    try {
+      compressed = await new Promise<Blob>((resolve, reject) => {
+        const img = document.createElement('img')
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+          URL.revokeObjectURL(url)
+          const MAX = 800
+          const scale = img.width > MAX ? MAX / img.width : 1
+          const canvas = document.createElement('canvas')
+          canvas.width  = Math.round(img.width  * scale)
+          canvas.height = Math.round(img.height * scale)
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.82)
+        }
+        img.onerror = (e) => reject(new Error(`Image load error: ${e}`))
+        img.src = url
+      })
+      console.log('[cover] compressed size:', compressed.size)
+    } catch (compressErr) {
+      console.error('[cover] compression failed:', compressErr)
+      alert(`Image compression failed: ${compressErr}`)
+      return
+    }
 
     const supabase = createClient()
     const path = `brief-covers/${briefId}.jpg`
+    console.log('[cover] uploading to storage path:', path)
+
     const { error: uploadError } = await supabase.storage
       .from('brief-assets')
       .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
     if (uploadError) {
-      console.error('Cover upload error:', uploadError)
+      console.error('[cover] storage upload error:', uploadError)
       alert(`Cover upload failed: ${uploadError.message}`)
       return
     }
+    console.log('[cover] storage upload success')
+
     // Cache-bust the URL so the card re-renders with the new image
     const { data: { publicUrl } } = supabase.storage.from('brief-assets').getPublicUrl(path)
     const bustedUrl = `${publicUrl}?t=${Date.now()}`
+    console.log('[cover] public URL:', bustedUrl)
 
     const { error: updateError } = await supabase.from('briefs').update({ cover_url: bustedUrl }).eq('id', briefId)
     if (updateError) {
-      console.error('Cover DB update error:', updateError)
+      console.error('[cover] DB update error:', updateError)
       alert(`Saved image but couldn't update the brief: ${updateError.message}`)
       return
     }
+    console.log('[cover] DB updated — setting state')
     setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: bustedUrl } : b))
+    setSelectedBrief(prev => prev?.id === briefId ? { ...prev, cover_url: bustedUrl } : prev)
+  }
+
+  async function handleCoverDelete(briefId: string) {
+    const supabase = createClient()
+    // Remove from storage (best-effort)
+    await supabase.storage.from('brief-assets').remove([`brief-covers/${briefId}.jpg`])
+    // Clear DB field
+    await supabase.from('briefs').update({ cover_url: null }).eq('id', briefId)
+    setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: null } : b))
+    setSelectedBrief(prev => prev?.id === briefId ? { ...prev, cover_url: null } : prev)
   }
 
   const inProduction  = briefs.filter(b => ['in_production', 'client_review', 'qa_review'].includes(b.pipeline_status))
@@ -374,6 +418,7 @@ export default function CreativePipeline() {
                               onApprove={() => handleApprove(brief.id)}
                               onRequestRevisions={() => handleRequestRevisions(brief.id)}
                               onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
+                              onCoverDelete={() => handleCoverDelete(brief.id)}
                             />
                           </div>
                         )}
@@ -427,6 +472,7 @@ export default function CreativePipeline() {
                               onApprove={() => handleApprove(brief.id)}
                               onRequestRevisions={() => handleRequestRevisions(brief.id)}
                               onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
+                              onCoverDelete={() => handleCoverDelete(brief.id)}
                             />
                           </div>
                         )}
@@ -520,7 +566,7 @@ export default function CreativePipeline() {
 
 // ─── Brief Card ───────────────────────────────────────────────────────────────
 
-function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload }: {
+function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
   brief: Brief
   clientColor: string
   reviewMode?: boolean
@@ -530,11 +576,27 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
   onApprove: () => void
   onRequestRevisions: () => void
   onCoverUpload?: (file: File | null) => void
+  onCoverDelete?: () => void
 }) {
-  const [approving, setApproving]       = useState(false)
-  const [revisioning, setRevisioning]   = useState(false)
-  const [coverHover, setCoverHover]     = useState(false)
+  const [approving, setApproving]           = useState(false)
+  const [revisioning, setRevisioning]       = useState(false)
+  const [coverHover, setCoverHover]         = useState(false)
+  const [coverMenuOpen, setCoverMenuOpen]   = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
+  const coverMenuRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Close cover menu on outside click
+  useEffect(() => {
+    if (!coverMenuOpen) return
+    function handler(e: MouseEvent) {
+      if (coverMenuRef.current && !coverMenuRef.current.contains(e.target as Node)) {
+        setCoverMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [coverMenuOpen])
   const typeInfo    = CONTENT_TYPES.find(t => t.id === brief.content_type)
   const hasDraft    = !!brief.draft_url
   const isRevisions = brief.internal_status === 'revisions_required'
@@ -607,6 +669,23 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
           </div>
         )}
 
+        {/* File input — always mounted so it survives the OS file-picker focus loss */}
+        {onCoverUpload && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={e => {
+              setCoverMenuOpen(false)
+              const file = e.target.files?.[0] ?? null
+              // Reset so the same file can be re-selected next time
+              e.target.value = ''
+              handleCoverChange(file)
+            }}
+          />
+        )}
+
         {/* Upload loading overlay */}
         {uploadingCover && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -614,23 +693,43 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
           </div>
         )}
 
-        {/* Change cover — show on hover */}
+        {/* Cover action button — show on hover */}
         {onCoverUpload && coverHover && !uploadingCover && (
-          <label
-            className="absolute bottom-2 right-2 cursor-pointer"
+          <div
+            className="absolute bottom-2 right-2"
+            ref={coverMenuRef}
             onClick={e => e.stopPropagation()}
           >
-            <div className="rounded-lg bg-black/70 px-2 py-1 flex items-center gap-1">
+            <button
+              className="rounded-lg bg-black/70 px-2 py-1 flex items-center gap-1 hover:bg-black/85 transition-colors"
+              onClick={() => setCoverMenuOpen(v => !v)}
+            >
               <Upload className="h-3 w-3 text-white" />
-              <span className="text-[10px] font-semibold text-white">Change cover</span>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => handleCoverChange(e.target.files?.[0] ?? null)}
-            />
-          </label>
+              <span className="text-[10px] font-semibold text-white">Cover</span>
+              <ChevronDown className="h-3 w-3 text-white" />
+            </button>
+
+            {coverMenuOpen && (
+              <div className="absolute bottom-full mb-1 right-0 w-44 rounded-xl bg-white border border-zinc-200 shadow-xl overflow-hidden z-20">
+                <button
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5 text-zinc-400" />
+                  {brief.cover_url ? 'Replace cover' : 'Upload cover'}
+                </button>
+                {brief.cover_url && onCoverDelete && (
+                  <button
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                    onClick={() => { setCoverMenuOpen(false); onCoverDelete() }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete cover
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -797,6 +896,18 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const [localDueDate, setLocalDueDate]     = useState(brief.due_date ?? '')
   const [editingField, setEditingField]     = useState<string | null>(null)
   const [savingField, setSavingField]       = useState<string | null>(null)
+
+  // Re-sync local fields when the brief prop is updated from outside (e.g. real-time hub sync)
+  useEffect(() => {
+    if (editingField !== 'name')         setLocalName(brief.name)
+    if (editingField !== 'description')  setLocalDesc(brief.description ?? '')
+    if (editingField !== 'campaign')     setLocalCampaign(brief.campaign ?? '')
+    if (editingField !== 'content_type') setLocalType(brief.content_type ?? '')
+    if (editingField !== 'sizes')        setLocalSizes(brief.sizes ?? [])
+    if (editingField !== 'ref_url')      setLocalRefUrl(brief.ref_url ?? '')
+    if (editingField !== 'due_date')     setLocalDueDate(brief.due_date ?? '')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brief])
 
   async function saveField(field: string, value: unknown) {
     setSavingField(field)
