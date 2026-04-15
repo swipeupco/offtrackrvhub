@@ -11,6 +11,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useActiveClient } from '@/lib/active-client-context'
 
 interface Brief {
   id: string
@@ -53,12 +54,13 @@ function getColumn(status: string) {
 
 export default function CreativePipeline() {
   const [briefs, setBriefs]       = useState<Brief[]>([])
-  const [clientId, setClientId]   = useState<string | null>(null)
-  const [clientColor, setClientColor] = useState('#14C29F')
   const [loading, setLoading]     = useState(true)
   const [selectedBrief, setSelectedBrief] = useState<Brief | null>(null)
   const [showBriefModal, setShowBriefModal] = useState(false)
   const [showAllApproved, setShowAllApproved] = useState(false)
+
+  const { clientId, clientConfig, loading: clientLoading } = useActiveClient()
+  const clientColor = clientConfig.color
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -70,49 +72,32 @@ export default function CreativePipeline() {
     }
   }, [searchParams, router])
 
-  async function load(silent = false) {
+  async function load(cid: string, silent = false) {
     if (!silent) setLoading(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('client_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.client_id) { setLoading(false); return }
-    setClientId(profile.client_id)
-
-    const { data: client } = await supabase
-      .from('clients')
-      .select('color')
-      .eq('id', profile.client_id)
-      .single()
-    if (client?.color) setClientColor(client.color)
-
     const { data: briefData } = await supabase
       .from('briefs')
       .select('*')
-      .eq('client_id', profile.client_id)
+      .eq('client_id', cid)
       .order('created_at', { ascending: false })
-
     setBriefs(briefData ?? [])
     setLoading(false)
   }
 
   useEffect(() => {
-    load()
+    if (clientLoading) return
+    if (!clientId) { setLoading(false); setBriefs([]); return }
+
+    load(clientId)
+
     const supabase = createClient()
-    // Re-sync the brief list whenever any brief changes (status updates from the hub)
     const channel = supabase
       .channel('client-briefs-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => load(clientId, true))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clientId, clientLoading])
 
   // Approve: updates BOTH pipeline_status → approved AND internal_status → approved_by_client
   async function handleApprove(briefId: string) {
@@ -286,7 +271,7 @@ export default function CreativePipeline() {
           clientId={clientId}
           clientColor={clientColor}
           onClose={() => setShowBriefModal(false)}
-          onCreated={() => { setShowBriefModal(false); load(true) }}
+          onCreated={() => { setShowBriefModal(false); load(clientId, true) }}
         />
       )}
     </div>
