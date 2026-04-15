@@ -7,7 +7,7 @@ import {
   CheckCircle2, Play, Plus, X, Send, ExternalLink,
   MessageSquare, RotateCcw, Loader2, ChevronDown, Clock,
   Video, Image, Mail, LayoutGrid, Mic, FileText, CircleDot,
-  GripVertical, Upload, Trash2, AtSign,
+  GripVertical, Upload, Trash2, AtSign, Pencil, Check,
 } from 'lucide-react'
 import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
@@ -67,7 +67,7 @@ export default function CreativePipeline() {
   const [showIdeaGenerator, setShowIdeaGenerator] = useState(false)
   const [prefillBrief, setPrefillBrief]        = useState<Partial<{ name: string; campaign: string; contentType: string; description: string; sizes: string[] }> | null>(null)
 
-  const { clientId, clientConfig, loading: clientLoading } = useActiveClient()
+  const { clientId, clientConfig, isAdmin, isStaff, setClientId, loading: clientLoading } = useActiveClient()
   const clientColor = clientConfig.color
 
   const searchParams = useSearchParams()
@@ -80,12 +80,18 @@ export default function CreativePipeline() {
     }
   }, [searchParams, router])
 
-  // Deep-link: open a specific brief from a notification link (?briefId=...)
+  // Deep-link: open a specific brief from a notification link (?briefId=&clientId=)
   const [pendingBriefId, setPendingBriefId] = useState<string | null>(null)
   useEffect(() => {
     const bid = searchParams.get('briefId')
-    if (bid) { setPendingBriefId(bid); router.replace('/trello') }
-  }, [searchParams, router])
+    const cid = searchParams.get('clientId')
+    if (bid) {
+      setPendingBriefId(bid)
+      // Switch to the right client if staff/admin are coming from a notification
+      if (cid && (isAdmin || isStaff)) setClientId(cid)
+      router.replace('/trello')
+    }
+  }, [searchParams, router, isAdmin, isStaff, setClientId])
 
   useEffect(() => {
     if (pendingBriefId && briefs.length > 0) {
@@ -726,15 +732,19 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onApprove: () => void
   onRequestRevisions: () => void
 }) {
-  const [comments, setComments]           = useState<Comment[]>([])
-  const [newComment, setNewComment]       = useState('')
-  const [sending, setSending]             = useState(false)
-  const [commentError, setCommentError]   = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
-  const [mentionOpen, setMentionOpen]   = useState(false)
-  const [mentionQuery, setMentionQuery] = useState('')
-  const [mentionStart, setMentionStart] = useState(0)
+  const [comments, setComments]             = useState<Comment[]>([])
+  const [newComment, setNewComment]         = useState('')
+  const [sending, setSending]               = useState(false)
+  const [commentError, setCommentError]     = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId]   = useState<string | null>(null)
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
+  const [editingId, setEditingId]           = useState<string | null>(null)
+  const [editText, setEditText]             = useState('')
+  const [savingEdit, setSavingEdit]         = useState(false)
+  const [mentionUsers, setMentionUsers]     = useState<MentionUser[]>([])
+  const [mentionOpen, setMentionOpen]       = useState(false)
+  const [mentionQuery, setMentionQuery]     = useState('')
+  const [mentionStart, setMentionStart]     = useState(0)
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -813,6 +823,17 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   async function handleDeleteComment(id: string) {
     const supabase = createClient()
     await supabase.from('brief_comments').delete().eq('id', id)
+    await loadComments()
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!editText.trim()) return
+    setSavingEdit(true)
+    const supabase = createClient()
+    await supabase.from('brief_comments').update({ content: editText.trim() }).eq('id', id)
+    setEditingId(null)
+    setSavingEdit(false)
+    await loadComments()
   }
 
   async function sendComment(e: React.FormEvent) {
@@ -852,18 +873,19 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     setSending(false)
     await loadComments()
 
-    // Fire notification best-effort (never blocks the comment)
+    // Fire notification — appears in bell for ALL users on both portals
     try {
       const snippet = text.length > 80 ? text.slice(0, 80) + '…' : text
+      const link    = `/trello?briefId=${brief.id}&clientId=${brief.client_id}`
       const { error: notifError } = await supabase.from('notifications').insert({
         message:  `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
         type:     'comment',
-        link:     `/trello?briefId=${brief.id}`,
+        link,
         resolved: false,
       })
-      if (notifError) console.warn('Notification insert failed (non-critical):', notifError.message)
+      if (notifError) console.warn('Notification insert failed:', notifError.message)
     } catch (err) {
-      console.warn('Notification insert failed (non-critical):', err)
+      console.warn('Notification insert failed:', err)
     }
   }
 
@@ -994,9 +1016,16 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
               </div>
             )}
             {comments.map(c => {
-              const isOwn = c.user_id === currentUserId
+              const isOwn     = c.user_id === currentUserId
+              const isHovered = hoveredCommentId === c.id
+              const isEditing = editingId === c.id
               return (
-                <div key={c.id} className="flex gap-3 group/comment">
+                <div
+                  key={c.id}
+                  className="flex gap-3"
+                  onMouseEnter={() => setHoveredCommentId(c.id)}
+                  onMouseLeave={() => setHoveredCommentId(null)}
+                >
                   {/* Avatar */}
                   <div
                     className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
@@ -1004,27 +1033,72 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                   >
                     {getInitials(c.user_name)}
                   </div>
+
                   <div className="flex-1 min-w-0">
-                    {/* Name + time row */}
+                    {/* Name + time + action buttons */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[12px] font-semibold text-gray-800">{c.user_name || 'Team'}</span>
                       <span className="text-[10px] text-gray-400">{format(new Date(c.created_at), 'd MMM · h:mm a')}</span>
-                      {isOwn && (
-                        <button
-                          onClick={() => handleDeleteComment(c.id)}
-                          className="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity text-gray-300 hover:text-red-400"
-                          title="Delete comment"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                      {isOwn && isHovered && !isEditing && (
+                        <div className="ml-auto flex items-center gap-0.5">
+                          <button
+                            onClick={() => { setEditingId(c.id); setEditText(c.content ?? '') }}
+                            className="p-1 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteComment(c.id)}
+                            className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
-                    {/* Bubble */}
-                    <div className="rounded-2xl rounded-tl-sm bg-gray-50 border border-gray-100 px-3 py-2">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {renderCommentContent(c.content)}
-                      </p>
-                    </div>
+
+                    {/* Bubble — edit mode or display mode */}
+                    {isEditing ? (
+                      <div>
+                        <textarea
+                          autoFocus
+                          rows={2}
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(c.id) }
+                            if (e.key === 'Escape') setEditingId(null)
+                          }}
+                          className="w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                        />
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <button
+                            onClick={() => handleSaveEdit(c.id)}
+                            disabled={savingEdit}
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                            style={{ backgroundColor: clientColor }}
+                          >
+                            {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <span className="text-[10px] text-gray-400 ml-1">Enter to save · Esc to cancel</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl rounded-tl-sm bg-gray-50 border border-gray-100 px-3 py-2">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {renderCommentContent(c.content ?? '')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
