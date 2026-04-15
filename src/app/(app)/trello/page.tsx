@@ -883,13 +883,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const hasDraft   = !!brief.draft_url
   const typeInfo   = CONTENT_TYPES.find(t => t.id === brief.content_type)
 
-  // ── Animated dots for "working on it" ──
-  const [dots, setDots] = useState('.')
-  useEffect(() => {
-    if (!isReview) return
-    const id = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 500)
-    return () => clearInterval(id)
-  }, [isReview])
 
   // ── Editable brief fields ──
   const [localName, setLocalName]           = useState(brief.name)
@@ -1189,26 +1182,31 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     View Draft
                   </a>
                 ) : (
-                  <div
-                    className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-gray-50 border border-dashed w-full"
-                    style={isReview
-                      ? { borderColor: `${clientColor}60`, color: clientColor }
-                      : { borderColor: '#e5e7eb', color: '#9ca3af' }}
-                  >
-                    {isReview ? (
-                      <>
-                        <span className="relative flex h-2 w-2 flex-shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: clientColor }} />
-                          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: clientColor }} />
-                        </span>
-                        <span>We&apos;re working on it right now<span style={{ letterSpacing: '0.05em' }}>{dots}</span></span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="h-4 w-4" />
-                        Draft coming soon
-                      </>
+                  <div className="space-y-1.5">
+                    {isReview && (
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Current Status</p>
                     )}
+                    <div
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-gray-50 border border-dashed w-full"
+                      style={isReview
+                        ? { borderColor: `${clientColor}60`, color: clientColor }
+                        : { borderColor: '#e5e7eb', color: '#9ca3af' }}
+                    >
+                      {isReview ? (
+                        <>
+                          <span className="relative flex h-2 w-2 flex-shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: clientColor }} />
+                            <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: clientColor }} />
+                          </span>
+                          <span>We&apos;re working on it right now</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-4 w-4" />
+                          Draft coming soon
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {isReview && hasDraft && !isApproved && (
