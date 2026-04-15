@@ -25,6 +25,7 @@ interface Props {
 
 export function BrandingPanel({ onBrandingChange }: Props) {
   const [branding, setBranding]       = useState<ClientBranding | null>(null)
+  const [loaded, setLoaded]           = useState(false)
   const [color, setColor]             = useState('#14C29F')
   const [displayName, setDisplayName] = useState('')
   const [logoUrl, setLogoUrl]         = useState<string | null>(null)
@@ -66,6 +67,7 @@ export function BrandingPanel({ onBrandingChange }: Props) {
         setDisplayName(client.name)
         setLogoUrl(client.logo_url)
       }
+      setLoaded(true)
     }
     load()
   }, [])
@@ -148,17 +150,20 @@ export function BrandingPanel({ onBrandingChange }: Props) {
     setLogoUrl(null)
   }
 
-  if (!branding) return (
+  if (!loaded) return (
     <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
         <Palette className="h-4 w-4 text-zinc-500" />
         <h2 className="font-semibold text-zinc-900 text-sm">Portal Branding</h2>
       </div>
-      <div className="p-6">
+      <div className="p-6 space-y-2">
         <div className="h-4 w-48 bg-zinc-100 rounded animate-pulse" />
+        <div className="h-4 w-32 bg-zinc-100 rounded animate-pulse" />
       </div>
     </div>
   )
+
+  if (!branding) return null
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
