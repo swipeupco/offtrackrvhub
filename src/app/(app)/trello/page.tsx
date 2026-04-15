@@ -1214,7 +1214,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                       ) : (
                         <>
                           <Clock className="h-4 w-4" />
-                          Draft coming soon
+                          Not started yet
                         </>
                       )}
                     </div>
