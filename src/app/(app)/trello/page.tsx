@@ -533,6 +533,8 @@ export default function CreativePipeline() {
             onClose={() => setSelectedBrief(null)}
             onApprove={() => handleApprove(selectedBrief.id)}
             onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
+            onCoverUpload={(file) => handleCoverUpload(selectedBrief.id, file)}
+            onCoverDelete={() => handleCoverDelete(selectedBrief.id)}
           />
         )}
 
@@ -848,13 +850,16 @@ function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: 
 
 // ─── Brief Side Panel ────────────────────────────────────────────────────────
 
-function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions }: {
+function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
   brief: Brief
   clientColor: string
   onClose: () => void
   onApprove: () => void
   onRequestRevisions: () => void
+  onCoverUpload?: (file: File) => void
+  onCoverDelete?: () => void
 }) {
+  const coverFileRef = useRef<HTMLInputElement>(null)
   // ── Comment state ──
   const [comments, setComments]             = useState<Comment[]>([])
   const [newComment, setNewComment]         = useState('')
@@ -1091,6 +1096,45 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
+
+        {/* ── Cover image (Trello-style banner) ── */}
+        {brief.cover_url && (
+          <div className="relative flex-shrink-0 h-44 w-full overflow-hidden rounded-t-2xl group/coverpanel">
+            <img src={brief.cover_url} alt="" className="w-full h-full object-cover" />
+            {/* dark scrim so header text stays readable */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
+            {/* Cover actions — top right */}
+            {onCoverUpload && (
+              <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover/coverpanel:opacity-100 transition-opacity">
+                <button
+                  onClick={() => coverFileRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-lg bg-black/60 hover:bg-black/80 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors backdrop-blur-sm"
+                >
+                  <Upload className="h-3 w-3" /> Replace
+                </button>
+                {onCoverDelete && (
+                  <button
+                    onClick={onCoverDelete}
+                    className="flex items-center gap-1.5 rounded-lg bg-black/60 hover:bg-red-600/80 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors backdrop-blur-sm"
+                  >
+                    <Trash2 className="h-3 w-3" /> Remove
+                  </button>
+                )}
+              </div>
+            )}
+            <input
+              ref={coverFileRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file && onCoverUpload) onCoverUpload(file)
+              }}
+            />
+          </div>
+        )}
 
         {/* ── Header bar (brand colour) ── */}
         <div className="flex-shrink-0 px-8 py-6 flex items-start justify-between" style={{ backgroundColor: clientColor }}>
