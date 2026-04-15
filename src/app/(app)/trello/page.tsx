@@ -253,6 +253,15 @@ export default function CreativePipeline() {
     }
   }
 
+  async function handleDeleteBrief(briefId: string) {
+    const supabase = createClient()
+    await supabase.from('brief_comments').delete().eq('brief_id', briefId)
+    await supabase.storage.from('brief-assets').remove([`brief-covers/${briefId}.jpg`])
+    await supabase.from('briefs').delete().eq('id', briefId)
+    setBriefs(prev => prev.filter(b => b.id !== briefId))
+    setSelectedBrief(null)
+  }
+
   async function handleCoverUpload(briefId: string, file: File | null) {
     console.log('[cover] handleCoverUpload called', { briefId, file: file?.name, size: file?.size })
     if (!file) { console.warn('[cover] no file, aborting'); return }
@@ -536,6 +545,7 @@ export default function CreativePipeline() {
             onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
             onCoverUpload={(file) => handleCoverUpload(selectedBrief.id, file)}
             onCoverDelete={() => handleCoverDelete(selectedBrief.id)}
+            onDelete={() => handleDeleteBrief(selectedBrief.id)}
           />
         )}
 
@@ -863,7 +873,7 @@ function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: 
 
 // ─── Brief Side Panel ────────────────────────────────────────────────────────
 
-function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
+function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete }: {
   brief: Brief
   clientColor: string
   onClose: () => void
@@ -871,8 +881,11 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onRequestRevisions: () => void
   onCoverUpload?: (file: File) => void
   onCoverDelete?: () => void
+  onDelete?: () => void
 }) {
   const coverFileRef = useRef<HTMLInputElement>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   // ── Comment state ──
   const [comments, setComments]             = useState<Comment[]>([])
   const [newComment, setNewComment]         = useState('')
@@ -1347,6 +1360,42 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                   })}
                 </div>
               </div>
+
+              {/* ── Delete brief ── */}
+              {onDelete && (
+                <div className="pt-2 border-t border-gray-100">
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-gray-300 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete brief
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-red-100 bg-red-50 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-red-600">Delete this brief?</p>
+                      <p className="text-[11px] text-red-400">This cannot be undone. All comments and files will be permanently removed.</p>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={async () => { setDeleting(true); await onDelete() }}
+                          className="flex-1 rounded-lg bg-red-500 hover:bg-red-600 py-1.5 text-xs font-semibold text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
+                        >
+                          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          Yes, delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>
