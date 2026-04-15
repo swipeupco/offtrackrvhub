@@ -213,11 +213,11 @@ export function Sidebar() {
         <p className="text-xs text-gray-400">Built by</p>
         <a href="https://swipeupco.com" target="_blank" rel="noopener noreferrer">
           <Image
-            src="https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp"
+            src="/swipeup-logo.png"
             alt="SwipeUp"
-            width={80}
-            height={24}
-            className="object-contain opacity-50 hover:opacity-100 transition-opacity"
+            width={100}
+            height={28}
+            className="object-contain opacity-40 hover:opacity-80 transition-opacity"
             unoptimized
           />
         </a>

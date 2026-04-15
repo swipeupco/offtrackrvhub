@@ -771,7 +771,7 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
               rows={3}
-              placeholder="Describe what you need... e.g. 'Short reel for Ballarat show featuring Atlas caravan, for families, story format'"
+              placeholder="Describe what you need... e.g. 'Short Instagram reel for our upcoming sale, upbeat and energetic, targeting new customers'"
               className="w-full rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
             />
             <button
@@ -795,7 +795,7 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
-                  placeholder="e.g. Ballarat Show – Reel"
+                  placeholder="e.g. Summer Sale – Instagram Reel"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition-all"
                 />
               </div>
@@ -805,7 +805,7 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
                   type="text"
                   value={campaign}
                   onChange={e => setCampaign(e.target.value)}
-                  placeholder="e.g. Ballarat Caravan Show 2026"
+                  placeholder="e.g. Summer Campaign 2026"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 transition-all"
                 />
               </div>
@@ -1006,7 +1006,7 @@ function IdeaGeneratorModal({ clientColor, onClose, onBriefGenerated }: {
                   value={goal}
                   onChange={e => setGoal(e.target.value)}
                   rows={3}
-                  placeholder="e.g. Promote our new Atlas caravan at the Melbourne show, targeting young families..."
+                  placeholder="e.g. Drive awareness for our new product launch, reach existing customers and warm leads..."
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
                 />
               </div>
