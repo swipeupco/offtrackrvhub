@@ -917,250 +917,290 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
 
-        {/* ── Header ── */}
-        <div className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="flex-1 min-w-0">
-              {brief.campaign && <p className="text-xs text-gray-400 mb-0.5">{brief.campaign}</p>}
-              <h2 className="font-bold text-gray-900 leading-snug text-base">{brief.name}</h2>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {typeInfo && (
-                  <span className="text-[11px] font-semibold rounded-full px-2.5 py-1"
-                    style={{ backgroundColor: `${typeInfo.color}18`, color: typeInfo.color }}>
-                    {typeInfo.id}
-                  </span>
-                )}
-                {isApproved && (
-                  <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-600">
-                    Approved ✓
-                  </span>
-                )}
-                {isReview && !isApproved && (
-                  <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 bg-blue-50 text-blue-600">
-                    In Production
-                  </span>
-                )}
-              </div>
+        {/* ── Header bar (brand colour) ── */}
+        <div className="flex-shrink-0 px-8 py-6 flex items-start justify-between" style={{ backgroundColor: clientColor }}>
+          <div className="flex-1 min-w-0">
+            {brief.campaign && (
+              <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>{brief.campaign}</p>
+            )}
+            <h2 className="text-xl font-bold text-white leading-snug">{brief.name}</h2>
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {typeInfo && (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold bg-white/20 text-white">
+                  <typeInfo.icon className="h-3 w-3" />
+                  {typeInfo.id}
+                </span>
+              )}
+              {isApproved && (
+                <span className="rounded-full px-3 py-1 text-[11px] font-semibold bg-emerald-400/30 text-white">Approved ✓</span>
+              )}
+              {isReview && !isApproved && (
+                <span className="rounded-full px-3 py-1 text-[11px] font-semibold bg-white/20 text-white">In Production</span>
+              )}
+              {brief.due_date && (
+                <span className="rounded-full px-3 py-1 text-[11px] font-medium bg-white/10 text-white/80">
+                  Due {format(new Date(brief.due_date), 'd MMM yyyy')}
+                </span>
+              )}
             </div>
-            <button onClick={onClose} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 transition-colors">
-              <X className="h-5 w-5" />
-            </button>
           </div>
-
-          {hasDraft ? (
-            <a
-              href={brief.draft_url!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white w-full hover:opacity-90 transition-opacity shadow-sm"
-              style={{ backgroundColor: clientColor }}
-            >
-              <ExternalLink className="h-4 w-4" />
-              View Draft
-            </a>
-          ) : (
-            <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-400 bg-gray-50 border border-gray-100 w-full">
-              <Clock className="h-4 w-4" />
-              Draft coming soon
-            </div>
-          )}
-
-          {isReview && hasDraft && !isApproved && (
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={onRequestRevisions}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Request Revisions
-              </button>
-              <button
-                onClick={onApprove}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Approve
-              </button>
-            </div>
-          )}
+          <button onClick={onClose} className="ml-4 flex-shrink-0 rounded-xl p-2 text-white/60 hover:text-white hover:bg-white/10 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        {/* ── Brief Details ── */}
-        {brief.description && (
-          <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Brief Details</p>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
-              {brief.description}
-            </p>
-          </div>
-        )}
+        {/* ── Body: two columns ── */}
+        <div className="flex flex-1 overflow-hidden min-h-0">
 
-        {/* ── Comments ── */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-6 py-3 border-b border-gray-100 flex-shrink-0">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-              Comments {comments.length > 0 && `(${comments.length})`}
-            </p>
-          </div>
+          {/* ── LEFT: Brief details ── */}
+          <div className="w-[42%] flex-shrink-0 border-r border-gray-100 overflow-y-auto">
+            <div className="p-6 space-y-5">
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {comments.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <MessageSquare className="h-6 w-6 text-gray-200 mb-2" />
-                <p className="text-xs text-gray-400">No comments yet</p>
-                <p className="text-[11px] text-gray-300 mt-0.5">Leave feedback or ask a question below</p>
-              </div>
-            )}
-            {comments.map(c => {
-              const isOwn     = c.user_id === currentUserId
-              const isHovered = hoveredCommentId === c.id
-              const isEditing = editingId === c.id
-              return (
-                <div
-                  key={c.id}
-                  className="flex gap-3"
-                  onMouseEnter={() => setHoveredCommentId(c.id)}
-                  onMouseLeave={() => setHoveredCommentId(null)}
+              {/* Draft / action buttons */}
+              {hasDraft ? (
+                <a
+                  href={brief.draft_url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white w-full hover:opacity-90 transition-opacity shadow-sm"
+                  style={{ backgroundColor: clientColor }}
                 >
-                  {/* Avatar */}
-                  <div
-                    className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: clientColor }}
-                  >
-                    {getInitials(c.user_name)}
-                  </div>
+                  <ExternalLink className="h-4 w-4" />
+                  View Draft
+                </a>
+              ) : (
+                <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-400 bg-gray-50 border border-dashed border-gray-200 w-full">
+                  <Clock className="h-4 w-4" />
+                  Draft coming soon
+                </div>
+              )}
 
-                  <div className="flex-1 min-w-0">
-                    {/* Name + time + action buttons */}
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[12px] font-semibold text-gray-800">{c.user_name || 'Team'}</span>
-                      <span className="text-[10px] text-gray-400">{format(new Date(c.created_at), 'd MMM · h:mm a')}</span>
-                      {isOwn && isHovered && !isEditing && (
-                        <div className="ml-auto flex items-center gap-0.5">
-                          <button
-                            onClick={() => { setEditingId(c.id); setEditText(c.content ?? '') }}
-                            className="p-1 rounded-lg text-gray-300 hover:text-blue-400 hover:bg-blue-50 transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteComment(c.id)}
-                            className="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+              {isReview && hasDraft && !isApproved && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={onRequestRevisions}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Request Revisions
+                  </button>
+                  <button
+                    onClick={onApprove}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Approve
+                  </button>
+                </div>
+              )}
+
+              {/* Content type detail */}
+              {typeInfo && (
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Content Type</p>
+                  <div className="flex items-center gap-2 rounded-xl p-3 border border-gray-100 bg-gray-50">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${typeInfo.color}18` }}>
+                      <typeInfo.icon className="h-4 w-4" style={{ color: typeInfo.color }} />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700">{typeInfo.id}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {brief.description && (
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Brief Details</p>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
+                    {brief.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Status info */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Status</p>
+                <div className="flex items-center gap-2">
+                  {isApproved ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approved
+                    </span>
+                  ) : isReview ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100">
+                      <Play className="h-3.5 w-3.5" /> In Production
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-100">
+                      <Clock className="h-3.5 w-3.5" /> In Backlog
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT: Comments ── */}
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            {/* Comments header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <p className="text-sm font-semibold text-gray-800">
+                Comments {comments.length > 0 && <span className="text-gray-400 font-normal">({comments.length})</span>}
+              </p>
+            </div>
+
+            {/* Comment list */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+              {comments.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <MessageSquare className="h-8 w-8 text-gray-200 mb-2" />
+                  <p className="text-sm text-gray-400 font-medium">No comments yet</p>
+                  <p className="text-xs text-gray-300 mt-1">Leave feedback or ask a question below</p>
+                </div>
+              )}
+              {comments.map(c => {
+                const isOwn     = c.user_id === currentUserId
+                const isHovered = hoveredCommentId === c.id
+                const isEditing = editingId === c.id
+                return (
+                  <div
+                    key={c.id}
+                    className="flex gap-3"
+                    onMouseEnter={() => setHoveredCommentId(c.id)}
+                    onMouseLeave={() => setHoveredCommentId(null)}
+                  >
+                    <div
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
+                      style={{ backgroundColor: clientColor }}
+                    >
+                      {getInitials(c.user_name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-sm font-semibold text-gray-800">{c.user_name || 'Team'}</span>
+                        <span className="text-xs text-gray-400">{format(new Date(c.created_at), 'd MMM · h:mm a')}</span>
+                        {isOwn && isHovered && !isEditing && (
+                          <div className="ml-auto flex items-center gap-0.5">
+                            <button
+                              onClick={() => { setEditingId(c.id); setEditText(c.content ?? '') }}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComment(c.id)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div>
+                          <textarea
+                            autoFocus
+                            rows={2}
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(c.id) }
+                              if (e.key === 'Escape') setEditingId(null)
+                            }}
+                            className="w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                          />
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <button
+                              onClick={() => handleSaveEdit(c.id)}
+                              disabled={savingEdit}
+                              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                              style={{ backgroundColor: clientColor }}
+                            >
+                              {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl rounded-tl-sm bg-gray-50 border border-gray-100 px-4 py-3">
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            {renderCommentContent(c.content ?? '')}
+                          </p>
                         </div>
                       )}
                     </div>
-
-                    {/* Bubble — edit mode or display mode */}
-                    {isEditing ? (
-                      <div>
-                        <textarea
-                          autoFocus
-                          rows={2}
-                          value={editText}
-                          onChange={e => setEditText(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(c.id) }
-                            if (e.key === 'Escape') setEditingId(null)
-                          }}
-                          className="w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                        />
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <button
-                            onClick={() => handleSaveEdit(c.id)}
-                            disabled={savingEdit}
-                            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-                            style={{ backgroundColor: clientColor }}
-                          >
-                            {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <span className="text-[10px] text-gray-400 ml-1">Enter to save · Esc to cancel</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-2xl rounded-tl-sm bg-gray-50 border border-gray-100 px-3 py-2">
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          {renderCommentContent(c.content ?? '')}
-                        </p>
-                      </div>
-                    )}
                   </div>
-                </div>
-              )
-            })}
-            <div ref={endRef} />
-          </div>
+                )
+              })}
+              <div ref={endRef} />
+            </div>
 
-          {/* ── Input ── */}
-          <div className="border-t border-gray-100 p-4 flex-shrink-0 relative">
-            {/* @Mention dropdown */}
-            {mentionOpen && filteredMentions.length > 0 && (
-              <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 max-h-36 overflow-y-auto">
-                {filteredMentions.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onMouseDown={e => { e.preventDefault(); insertMention(u) }}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div
-                      className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: clientColor }}
+            {/* Comment input */}
+            <div className="border-t border-gray-100 p-4 flex-shrink-0 relative">
+              {mentionOpen && filteredMentions.length > 0 && (
+                <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 max-h-36 overflow-y-auto">
+                  {filteredMentions.map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); insertMention(u) }}
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
                     >
-                      {getInitials(u.name)}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">{u.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <form onSubmit={sendComment} className="flex gap-2 items-end">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  rows={2}
-                  value={newComment}
-                  onChange={e => handleCommentChange(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(e as any) }
-                    if (e.key === 'Escape') setMentionOpen(false)
-                  }}
-                  placeholder="Leave feedback or ask a question… (type @ to mention)"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
-                  style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={sending || !newComment.trim()}
-                className="rounded-xl px-3 py-2.5 text-white disabled:opacity-40 shadow-sm transition-opacity hover:opacity-90 flex-shrink-0"
-                style={{ backgroundColor: clientColor }}
-              >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </form>
-            {commentError ? (
-              <p className="text-[10px] text-red-500 mt-1.5 pl-1 font-medium">{commentError}</p>
-            ) : (
-              <p className="text-[10px] text-gray-400 mt-1.5 pl-1">
-                <AtSign className="inline h-2.5 w-2.5" /> to mention · Enter to send · Shift+Enter for new line
-              </p>
-            )}
+                      <div
+                        className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: clientColor }}
+                      >
+                        {getInitials(u.name)}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700">{u.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={sendComment} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <textarea
+                    ref={inputRef}
+                    rows={2}
+                    value={newComment}
+                    onChange={e => handleCommentChange(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(e as any) }
+                      if (e.key === 'Escape') setMentionOpen(false)
+                    }}
+                    placeholder="Write a comment… (@ to mention)"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={sending || !newComment.trim()}
+                  className="rounded-xl px-3 py-3 text-white disabled:opacity-40 shadow-sm transition-opacity hover:opacity-90 flex-shrink-0"
+                  style={{ backgroundColor: clientColor }}
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </form>
+              {commentError ? (
+                <p className="text-xs text-red-500 mt-1.5 pl-1 font-medium">{commentError}</p>
+              ) : (
+                <p className="text-[10px] text-gray-400 mt-1.5 pl-1">
+                  <AtSign className="inline h-2.5 w-2.5" /> to mention · Enter to send · Shift+Enter for new line
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
