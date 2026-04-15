@@ -21,7 +21,7 @@ export function Sidebar() {
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
   // All config now comes from context — updates instantly when branding saved
-  const { clientId, clientConfig, isAdmin, clients, setClientId } = useActiveClient()
+  const { clientId, clientConfig, isAdmin, clients, setClientId, loading: clientLoading } = useActiveClient()
   const { color, logo_url, name, has_shopify, has_vans, products_label } = clientConfig
 
   useEffect(() => {
@@ -55,6 +55,20 @@ export function Sidebar() {
 
   // Current client entry for the admin switcher button
   const activeClientEntry = clients.find(c => c.id === clientId)
+
+  if (clientLoading) return (
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
+      <div className="border-b border-zinc-800 px-4 py-3 min-h-[64px] flex items-center gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-zinc-800 animate-pulse flex-shrink-0" />
+        <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse" />
+      </div>
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {[1,2,3,4,5].map(n => (
+          <div key={n} className="h-10 rounded-lg bg-zinc-900 animate-pulse" />
+        ))}
+      </nav>
+    </aside>
+  )
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
