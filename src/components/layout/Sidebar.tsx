@@ -10,26 +10,57 @@ import { createClient } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 
 const nav = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/shows',      label: 'Shows',      icon: Tent },
-  { href: '/calendar',   label: 'Calendar',   icon: CalendarDays },
-  { href: '/shoots',     label: 'Video Shoots', icon: Video },
-  { href: '/inventory',  label: 'Stock', icon: Caravan },
-  { href: '/trello',     label: 'Creative Pipeline', icon: Columns2 },
-  { href: '/settings',   label: 'Settings',   icon: Settings },
+  { href: '/dashboard',  label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/shows',      label: 'Shows',            icon: Tent },
+  { href: '/calendar',   label: 'Calendar',         icon: CalendarDays },
+  { href: '/shoots',     label: 'Video Shoots',     icon: Video },
+  { href: '/inventory',  label: 'Stock',            icon: Caravan },
+  { href: '/trello',     label: 'Creative Pipeline',icon: Columns2 },
+  { href: '/settings',   label: 'Settings',         icon: Settings },
 ]
+
+interface ClientBranding {
+  color: string
+  logo_url: string | null
+  name: string
+}
+
+const DEFAULT_BRANDING: ClientBranding = {
+  color: '#14C29F',
+  logo_url: null,
+  name: 'Off Track RV',
+}
 
 export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
   const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null)
+  const [branding, setBranding] = useState<ClientBranding>(DEFAULT_BRANDING)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      supabase.from('profiles').select('name, avatar_url').eq('id', user.id).single()
-        .then(({ data }) => setProfile(data))
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('name, avatar_url, client_id')
+        .eq('id', user.id)
+        .single()
+
+      if (profileData) {
+        setProfile({ name: profileData.name, avatar_url: profileData.avatar_url })
+
+        if (profileData.client_id) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('color, logo_url, name')
+            .eq('id', profileData.client_id)
+            .single()
+
+          if (client) setBranding(client)
+        }
+      }
     })
   }, [])
 
@@ -40,18 +71,28 @@ export function Sidebar() {
     router.refresh()
   }
 
+  const { color, logo_url, name } = branding
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
       {/* Logo */}
-      <div className="flex items-center justify-center px-5 py-5 border-b border-zinc-800">
-        <Image
-          src="https://www.offtrackrv.com.au/content/images/off-track-rv-logo.svg"
-          alt="Off Track RV"
-          width={160}
-          height={48}
-          className="object-contain brightness-0 invert"
-          unoptimized
-        />
+      <div className="flex items-center justify-center px-5 py-4 border-b border-zinc-800 min-h-[72px]">
+        {logo_url ? (
+          <img
+            src={logo_url}
+            alt={name}
+            className="max-h-10 max-w-[160px] object-contain brightness-0 invert"
+          />
+        ) : (
+          <Image
+            src="https://www.offtrackrv.com.au/content/images/off-track-rv-logo.svg"
+            alt="Off Track RV"
+            width={160}
+            height={48}
+            className="object-contain brightness-0 invert"
+            unoptimized
+          />
+        )}
       </div>
 
       {/* Navigation */}
@@ -66,7 +107,7 @@ export function Sidebar() {
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 active ? 'text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
               )}
-              style={active ? { backgroundColor: '#14C29F' } : {}}
+              style={active ? { backgroundColor: color } : {}}
             >
               <Icon className="h-[18px] w-[18px] flex-shrink-0" />
               {label}
@@ -80,7 +121,7 @@ export function Sidebar() {
         <Link
           href="/trello?newBrief=1"
           className="flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#14C29F' }}
+          style={{ backgroundColor: color }}
         >
           <Plus className="h-[18px] w-[18px] flex-shrink-0" />
           Create Brief

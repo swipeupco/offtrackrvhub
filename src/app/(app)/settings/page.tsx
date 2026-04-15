@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Plus, Pencil, Trash2, Settings2, User, Lock, Camera, Check, AlertCircle } from 'lucide-react'
 import type { DeliverablesConfig, DeliverableFormData } from '@/types'
+import { BrandingPanel } from '@/components/settings/BrandingPanel'
 
 const emptyDel: DeliverableFormData = { name: '', days_before_show: 14 }
 
@@ -273,6 +274,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Portal Branding ── */}
+      <BrandingPanel />
 
       {/* ── Deliverables Template ── */}
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
