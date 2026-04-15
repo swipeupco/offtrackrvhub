@@ -348,11 +348,13 @@ export default function PipelinePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) setCurrentUserId(user.id)
 
-    // All non-backlog briefs across every client
+    // Only briefs actively in production (pipeline_status=in_production + internal_status set)
+    // Excludes legacy briefs that defaulted to in_production before the backlog stage existed
     const { data: briefData } = await supabase
       .from('briefs')
       .select('*')
-      .neq('pipeline_status', 'backlog')
+      .eq('pipeline_status', 'in_production')
+      .not('internal_status', 'is', null)
       .order('created_at', { ascending: false })
 
     if (!briefData?.length) { setBriefs([]); setLoading(false); return }
