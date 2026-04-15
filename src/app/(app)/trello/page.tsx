@@ -102,7 +102,20 @@ export default function CreativePipeline() {
       .select('*')
       .eq('client_id', cid)
       .order('sort_order', { ascending: true })
-    setBriefs(briefData ?? [])
+
+    const all = briefData ?? []
+
+    // Enforce: only 1 brief in production at a time — move extras back to backlog
+    const inProd = all.filter(b => ['in_production','client_review','qa_review'].includes(b.pipeline_status))
+    if (inProd.length > 1) {
+      const toBacklog = inProd.slice(1)
+      await Promise.all(toBacklog.map(b =>
+        supabase.from('briefs').update({ pipeline_status: 'backlog', internal_status: 'backlog' }).eq('id', b.id)
+      ))
+      toBacklog.forEach(b => { b.pipeline_status = 'backlog'; b.internal_status = 'backlog' })
+    }
+
+    setBriefs(all)
     setLoading(false)
   }
 
@@ -129,18 +142,52 @@ export default function CreativePipeline() {
   }, [briefs])
 
   async function handleDragEnd(result: DropResult) {
-    if (!result.destination) return
-    const items = Array.from(backlogOrder)
-    const [moved] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, moved)
-    setBacklogOrder(items)
-    // Persist new order
+    const { source, destination, draggableId } = result
+    if (!destination) return
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return
+
     const supabase = createClient()
-    await Promise.all(
-      items.map((brief, index) =>
-        supabase.from('briefs').update({ sort_order: index }).eq('id', brief.id)
-      )
-    )
+
+    // ── Reorder within Backlog ──
+    if (source.droppableId === 'backlog' && destination.droppableId === 'backlog') {
+      const items = Array.from(backlogOrder)
+      const [moved] = items.splice(source.index, 1)
+      items.splice(destination.index, 0, moved)
+      setBacklogOrder(items)
+      await Promise.all(items.map((b, i) => supabase.from('briefs').update({ sort_order: i }).eq('id', b.id)))
+      return
+    }
+
+    // ── Backlog → In Production ──
+    if (source.droppableId === 'backlog' && destination.droppableId === 'in-production') {
+      const currentInProd = briefs.filter(b => ['in_production','client_review','qa_review'].includes(b.pipeline_status))
+      // Swap existing production brief back to backlog
+      if (currentInProd.length > 0) {
+        await Promise.all(currentInProd.map(b =>
+          supabase.from('briefs').update({ pipeline_status: 'backlog', internal_status: 'backlog' }).eq('id', b.id)
+        ))
+      }
+      await supabase.from('briefs')
+        .update({ pipeline_status: 'in_production', internal_status: 'in_production' })
+        .eq('id', draggableId)
+      setBriefs(prev => prev.map(b => {
+        if (currentInProd.find(p => p.id === b.id)) return { ...b, pipeline_status: 'backlog', internal_status: 'backlog' }
+        if (b.id === draggableId) return { ...b, pipeline_status: 'in_production', internal_status: 'in_production' }
+        return b
+      }))
+      return
+    }
+
+    // ── In Production → Backlog ──
+    if (source.droppableId === 'in-production' && destination.droppableId === 'backlog') {
+      await supabase.from('briefs')
+        .update({ pipeline_status: 'backlog', internal_status: 'backlog' })
+        .eq('id', draggableId)
+      setBriefs(prev => prev.map(b =>
+        b.id === draggableId ? { ...b, pipeline_status: 'backlog', internal_status: 'backlog' } : b
+      ))
+      return
+    }
   }
 
   async function handleApprove(briefId: string) {
@@ -195,14 +242,23 @@ export default function CreativePipeline() {
   async function handleCoverUpload(briefId: string, file: File | null) {
     if (!file) return
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `brief-covers/${briefId}.${ext}`
+    const ext  = file.name.split('.').pop() ?? 'jpg'
+    const path = `brief-covers/${briefId}-${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('brief-assets')
-      .upload(path, file, { upsert: true })
-    if (uploadError) { console.error('Cover upload error:', uploadError); return }
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadError) {
+      console.error('Cover upload error:', uploadError)
+      alert(`Cover upload failed: ${uploadError.message}\n\nMake sure you've created the "brief-assets" storage bucket in Supabase (Settings → Storage → New bucket, set to Public).`)
+      return
+    }
     const { data: { publicUrl } } = supabase.storage.from('brief-assets').getPublicUrl(path)
-    await supabase.from('briefs').update({ cover_url: publicUrl }).eq('id', briefId)
+    const { error: updateError } = await supabase.from('briefs').update({ cover_url: publicUrl }).eq('id', briefId)
+    if (updateError) {
+      console.error('Cover DB update error:', updateError)
+      alert(`Saved image but couldn't update the brief: ${updateError.message}\n\nMake sure you've run: ALTER TABLE briefs ADD COLUMN IF NOT EXISTS cover_url text;`)
+      return
+    }
     setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: publicUrl } : b))
   }
 
@@ -316,26 +372,46 @@ export default function CreativePipeline() {
                 </div>
                 <div className="h-7 w-7" />
               </div>
-              <div className="p-3 space-y-3 min-h-[300px]">
-                {inProduction.map(brief => (
-                  <BriefCard
-                    key={brief.id}
-                    brief={brief}
-                    clientColor={clientColor}
-                    reviewMode
-                    onOpen={() => setSelectedBrief(brief)}
-                    onApprove={() => handleApprove(brief.id)}
-                    onRequestRevisions={() => handleRequestRevisions(brief.id)}
-                    onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
-                  />
-                ))}
-                {inProduction.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                    <p className="text-xs text-gray-400">Nothing in production yet</p>
-                    <p className="text-[11px] text-gray-300 mt-1">Top backlog item auto-promotes here</p>
+              <Droppable droppableId="in-production">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="p-3 space-y-3 min-h-[300px]"
+                  >
+                    {inProduction.map((brief, index) => (
+                      <Draggable key={brief.id} draggableId={brief.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            style={provided.draggableProps.style}
+                          >
+                            <BriefCard
+                              brief={brief}
+                              clientColor={clientColor}
+                              reviewMode
+                              dragHandleProps={provided.dragHandleProps}
+                              isDragging={snapshot.isDragging}
+                              onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
+                              onApprove={() => handleApprove(brief.id)}
+                              onRequestRevisions={() => handleRequestRevisions(brief.id)}
+                              onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {inProduction.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                        <p className="text-xs text-gray-400">Nothing in production yet</p>
+                        <p className="text-[11px] text-gray-300 mt-1">Drag a brief here or approve one</p>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </Droppable>
             </div>
 
             {/* ── Approved ── */}
@@ -425,11 +501,20 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
   onRequestRevisions: () => void
   onCoverUpload?: (file: File | null) => void
 }) {
-  const [approving, setApproving]     = useState(false)
-  const [revisioning, setRevisioning] = useState(false)
+  const [approving, setApproving]       = useState(false)
+  const [revisioning, setRevisioning]   = useState(false)
+  const [coverHover, setCoverHover]     = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const typeInfo    = CONTENT_TYPES.find(t => t.id === brief.content_type)
   const hasDraft    = !!brief.draft_url
   const isRevisions = brief.internal_status === 'revisions_required'
+
+  async function handleCoverChange(file: File | null) {
+    if (!file || !onCoverUpload) return
+    setUploadingCover(true)
+    await onCoverUpload(file)
+    setUploadingCover(false)
+  }
 
   async function approve() {
     setApproving(true)
@@ -461,7 +546,12 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
       )}
 
       {/* Thumbnail / Cover */}
-      <div className="relative h-28 rounded-xl mb-3 overflow-hidden group/cover" onClick={e => e.stopPropagation()}>
+      <div
+        className="relative h-28 rounded-xl mb-3 overflow-hidden"
+        onClick={e => e.stopPropagation()}
+        onMouseEnter={() => setCoverHover(true)}
+        onMouseLeave={() => setCoverHover(false)}
+      >
         {brief.cover_url ? (
           <img src={brief.cover_url} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -484,10 +574,20 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
           </div>
         )}
 
-        {/* Change cover — hover */}
-        {onCoverUpload && (
-          <label className="absolute bottom-2 right-2 opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
-            <div className="rounded-lg bg-black/60 backdrop-blur-sm px-2 py-1 flex items-center gap-1">
+        {/* Upload loading overlay */}
+        {uploadingCover && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 text-white animate-spin" />
+          </div>
+        )}
+
+        {/* Change cover — show on hover */}
+        {onCoverUpload && coverHover && !uploadingCover && (
+          <label
+            className="absolute bottom-2 right-2 cursor-pointer"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="rounded-lg bg-black/70 px-2 py-1 flex items-center gap-1">
               <Upload className="h-3 w-3 text-white" />
               <span className="text-[10px] font-semibold text-white">Change cover</span>
             </div>
@@ -495,8 +595,7 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={e => onCoverUpload(e.target.files?.[0] ?? null)}
-              onClick={e => e.stopPropagation()}
+              onChange={e => handleCoverChange(e.target.files?.[0] ?? null)}
             />
           </label>
         )}
@@ -1017,14 +1116,23 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
     if (!name.trim()) return
     setSaving(true)
     const supabase = createClient()
+    // Check if production slot is currently empty
+    const { data: inProd } = await supabase
+      .from('briefs')
+      .select('id')
+      .eq('client_id', clientId)
+      .in('pipeline_status', ['in_production','client_review','qa_review'])
+    const productionEmpty = (inProd?.length ?? 0) === 0
+
     await supabase.from('briefs').insert({
       name:            name.trim(),
       description:     description.trim() || null,
       campaign:        campaign.trim() || null,
       content_type:    contentType || null,
       client_id:       clientId,
-      pipeline_status: 'backlog',
-      internal_status: 'in_production',
+      pipeline_status: productionEmpty ? 'in_production' : 'backlog',
+      internal_status: productionEmpty ? 'in_production' : 'backlog',
+      sort_order:      productionEmpty ? 0 : 9999,
     })
     setSaving(false)
     onCreated()
