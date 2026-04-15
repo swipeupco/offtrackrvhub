@@ -760,12 +760,13 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
 
   async function loadComments() {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('brief_comments')
       .select('*')
       .eq('brief_id', brief.id)
-      .eq('is_internal', false)
+      .neq('is_internal', true)   // show everything that isn't explicitly internal
       .order('created_at', { ascending: true })
+    if (error) console.error('loadComments error:', error)
     setComments((data as Comment[]) ?? [])
   }
 
@@ -845,20 +846,22 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
       return
     }
 
-    // Comment saved — clear input immediately
+    // Comment saved — clear input and force reload immediately (don't wait for realtime)
     setCommentError(null)
     setNewComment('')
     setSending(false)
+    await loadComments()
 
     // Fire notification best-effort (never blocks the comment)
     try {
       const snippet = text.length > 80 ? text.slice(0, 80) + '…' : text
-      await supabase.from('notifications').insert({
+      const { error: notifError } = await supabase.from('notifications').insert({
         message:  `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
         type:     'comment',
         link:     `/trello?briefId=${brief.id}`,
         resolved: false,
       })
+      if (notifError) console.warn('Notification insert failed (non-critical):', notifError.message)
     } catch (err) {
       console.warn('Notification insert failed (non-critical):', err)
     }
