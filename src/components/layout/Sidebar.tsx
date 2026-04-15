@@ -75,15 +75,15 @@ export function Sidebar() {
 
   // Build nav dynamically based on client config
   const nav = [
-    { href: '/dashboard', label: 'Dashboard',        icon: LayoutDashboard, show: true },
-    { href: '/trello',    label: 'Creative Pipeline', icon: Columns2,        show: true },
-    { href: '/calendar',  label: 'Calendar',          icon: CalendarDays,    show: true },
-    { href: '/shows',     label: 'Shows',             icon: Tent,            show: true },
-    { href: '/shoots',    label: 'Video Shoots',      icon: Video,           show: true },
-    { href: '/inventory', label: has_vans ? products_label : products_label, icon: has_vans ? Caravan : Package, show: true },
-    { href: '/shopify',   label: 'Shopify',           icon: ShoppingBag,     show: has_shopify },
-    { href: '/social',    label: 'Social',            icon: BarChart2,       show: true },
-    { href: '/settings',  label: 'Settings',          icon: Settings,        show: true },
+    { href: '/dashboard',               label: 'Dashboard',        icon: LayoutDashboard, show: true },
+    { href: '/trello',                  label: 'Creative Pipeline', icon: Columns2,        show: true },
+    { href: '/calendar',                label: 'Calendar',         icon: CalendarDays,    show: true },
+    { href: '/shows',                   label: 'Shows',            icon: Tent,            show: true },
+    { href: '/shoots',                  label: 'Video Shoots',     icon: Video,           show: true },
+    { href: has_vans ? '/inventory' : '/products', label: products_label, icon: has_vans ? Caravan : Package, show: true },
+    { href: '/shopify',                 label: 'Shopify',          icon: ShoppingBag,     show: has_shopify },
+    { href: '/social',                  label: 'Social',           icon: BarChart2,       show: true },
+    { href: '/settings',                label: 'Settings',         icon: Settings,        show: true },
   ].filter(item => item.show)
 
   return (
