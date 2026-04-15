@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
-  BarChart2, Package, ChevronDown, ExternalLink, Layers, ClipboardList,
+  BarChart2, Package, ChevronDown, ExternalLink, Layers, ClipboardList, Workflow,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
@@ -44,6 +44,7 @@ export function Sidebar() {
 
   const nav = [
     { href: '/dashboard',                                label: 'Dashboard',          icon: LayoutDashboard, show: true },
+    { href: '/pipeline',                                 label: 'Pipeline',           icon: Workflow,        show: isAdmin || isStaff },
     { href: '/campaigns',                                label: 'Campaigns',          icon: Layers,          show: true },
     { href: '/trello',                                   label: 'Creative Requests',  icon: Columns2,        show: true },
     { href: '/calendar',                                 label: 'Marketing Calendar', icon: CalendarDays,    show: true },
