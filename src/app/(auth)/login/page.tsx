@@ -21,9 +21,10 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Load client branding from ?client=slug param
+  // Load client branding — subdomain cookie takes priority, then ?client= param
   useEffect(() => {
-    const slug = searchParams.get('client')
+    const cookieSlug = document.cookie.match(/x-client-slug=([^;]+)/)?.[1] ?? null
+    const slug = cookieSlug || searchParams.get('client')
     if (!slug) return
     const supabase = createClient()
     supabase
