@@ -414,6 +414,7 @@ export default function CreativePipeline() {
                               clientColor={clientColor}
                               dragHandleProps={provided.dragHandleProps}
                               isDragging={snapshot.isDragging}
+                              isUpNext={index === 0}
                               onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
                               onApprove={() => handleApprove(brief.id)}
                               onRequestRevisions={() => handleRequestRevisions(brief.id)}
@@ -568,10 +569,11 @@ export default function CreativePipeline() {
 
 // ─── Brief Card ───────────────────────────────────────────────────────────────
 
-function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
+function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
   brief: Brief
   clientColor: string
   reviewMode?: boolean
+  isUpNext?: boolean
   dragHandleProps?: DraggableProvidedDragHandleProps | null
   isDragging?: boolean
   onOpen: () => void
@@ -755,7 +757,18 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
             Revisions requested
           </span>
         )}
-        {!hasDraft && (
+        {!hasDraft && !reviewMode && (
+          isUpNext ? (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold border" style={{ backgroundColor: `${clientColor}15`, color: clientColor, borderColor: `${clientColor}40` }}>
+              ⬆ Up next
+            </span>
+          ) : (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-400 border border-gray-100">
+              Not started
+            </span>
+          )
+        )}
+        {!hasDraft && reviewMode && (
           <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-400 border border-gray-100">
             Awaiting draft
           </span>
