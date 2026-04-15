@@ -1092,10 +1092,8 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
 
         {/* ── Cover image (Trello-style banner) ── */}
         {brief.cover_url && (
-          <div className="relative flex-shrink-0 h-44 w-full overflow-hidden rounded-t-2xl group/coverpanel">
-            <img src={brief.cover_url} alt="" className="w-full h-full object-cover" />
-            {/* dark scrim so header text stays readable */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
+          <div className="relative flex-shrink-0 w-full rounded-t-2xl group/coverpanel overflow-hidden bg-black/80">
+            <img src={brief.cover_url} alt="" className="w-full max-h-48 object-contain" />
             {/* Cover actions — top right */}
             {onCoverUpload && (
               <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover/coverpanel:opacity-100 transition-opacity">
@@ -1130,7 +1128,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
         )}
 
         {/* ── Header bar (brand colour) ── */}
-        <div className="flex-shrink-0 px-8 py-6 flex items-start justify-between" style={{ backgroundColor: clientColor }}>
+        <div className="flex-shrink-0 px-6 py-4 flex items-start justify-between" style={{ backgroundColor: clientColor }}>
           <div className="flex-1 min-w-0">
             {brief.campaign && (
               <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>{brief.campaign}</p>
