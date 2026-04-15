@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -10,7 +10,7 @@ interface ClientBranding {
   logo_url: string | null
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const [mode, setMode]           = useState<'signin' | 'signup'>('signin')
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
@@ -185,5 +185,13 @@ export default function LoginPage() {
         Built by SwipeUp
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   )
 }
