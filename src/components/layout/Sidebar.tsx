@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, CalendarDays, Tent, Settings, Caravan,
+  LayoutDashboard, CalendarDays, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
   BarChart2, Package, ChevronDown, ExternalLink, Layers, ClipboardList,
 } from 'lucide-react'
@@ -48,7 +48,6 @@ export function Sidebar() {
     { href: '/trello',                                   label: 'Creative Requests',  icon: Columns2,        show: true },
     { href: '/calendar',                                 label: 'Marketing Calendar', icon: CalendarDays,    show: true },
     { href: '/todo',                                     label: 'My To Do List',      icon: ClipboardList,   show: true },
-    { href: '/shows',                                    label: 'Shows',              icon: Tent,            show: has_vans },
     { href: '/shoots',                                   label: 'Video Shoots',       icon: Video,           show: has_vans },
     { href: has_vans ? '/inventory' : '/products',       label: products_label,       icon: has_vans ? Caravan : Package, show: true },
     { href: '/shopify',                                  label: 'Shopify',            icon: ShoppingBag,     show: has_shopify },
@@ -60,29 +59,29 @@ export function Sidebar() {
   const activeClientEntry = clients.find(c => c.id === clientId)
 
   if (clientLoading) return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
-      <div className="border-b border-zinc-800 px-4 py-3 min-h-[64px] flex items-center gap-2.5">
-        <div className="h-7 w-7 rounded-lg bg-zinc-800 animate-pulse flex-shrink-0" />
-        <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse" />
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-white border-r border-gray-100">
+      <div className="border-b border-gray-100 px-4 py-3 min-h-[64px] flex items-center gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse flex-shrink-0" />
+        <div className="h-4 w-32 rounded bg-gray-100 animate-pulse" />
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {[1,2,3,4,5].map(n => (
-          <div key={n} className="h-10 rounded-lg bg-zinc-900 animate-pulse" />
+          <div key={n} className="h-10 rounded-lg bg-gray-50 animate-pulse" />
         ))}
       </nav>
     </aside>
   )
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-white border-r border-gray-100">
 
       {/* Logo / Client Switcher */}
-      <div className="border-b border-zinc-800">
+      <div className="border-b border-gray-100">
         {canSwitch ? (
           <div className="relative">
             <button
               onClick={() => setSwitcherOpen(o => !o)}
-              className="flex items-center justify-between w-full px-4 py-3 hover:bg-zinc-900 transition-colors min-h-[64px]"
+              className="flex items-center justify-between w-full px-4 py-3 hover:bg-gray-50 transition-colors min-h-[64px]"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
@@ -90,33 +89,33 @@ export function Sidebar() {
                   style={{ backgroundColor: color }}
                 >
                   {logo_url && logo_url !== 'https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp'
-                    ? <img src={logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
+                    ? <img src={logo_url} alt="" className="h-full w-full object-contain p-0.5" />
                     : name.slice(0, 2).toUpperCase()
                   }
                 </div>
-                <span className="text-sm font-semibold text-white truncate">{name}</span>
+                <span className="text-sm font-semibold text-gray-900 truncate">{name}</span>
               </div>
-              <ChevronDown className={`h-4 w-4 text-zinc-400 flex-shrink-0 transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {switcherOpen && (
-              <div className="absolute left-0 right-0 top-full z-50 bg-zinc-900 border border-zinc-700 rounded-b-xl shadow-xl max-h-64 overflow-y-auto">
+              <div className="absolute left-0 right-0 top-full z-50 bg-white border border-gray-100 shadow-lg rounded-b-xl max-h-64 overflow-y-auto">
                 {clients.map(c => (
                   <button
                     key={c.id}
                     onClick={() => { setClientId(c.id); setSwitcherOpen(false) }}
-                    className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left hover:bg-zinc-800 transition-colors ${c.id === clientId ? 'bg-zinc-800' : ''}`}
+                    className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${c.id === clientId ? 'bg-gray-50' : ''}`}
                   >
                     <div
                       className="h-6 w-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
                       style={{ backgroundColor: c.color }}
                     >
                       {c.logo_url
-                        ? <img src={c.logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
+                        ? <img src={c.logo_url} alt="" className="h-full w-full object-contain p-0.5" />
                         : c.name.slice(0, 2).toUpperCase()
                       }
                     </div>
-                    <span className="text-sm text-zinc-200 truncate">{c.name}</span>
+                    <span className="text-sm text-gray-800 truncate">{c.name}</span>
                     {c.id === clientId && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[#14C29F] flex-shrink-0" />}
                   </button>
                 ))}
@@ -127,9 +126,9 @@ export function Sidebar() {
           // Regular client user — show their logo or name
           <div className="flex items-center justify-center px-5 py-4 min-h-[64px]">
             {logo_url ? (
-              <img src={logo_url} alt={name} className="max-h-10 max-w-[160px] object-contain brightness-0 invert" />
+              <img src={logo_url} alt={name} className="max-h-10 max-w-[160px] object-contain" />
             ) : (
-              <span className="text-lg font-bold text-white tracking-tight">{name}</span>
+              <span className="text-lg font-bold text-gray-900 tracking-tight">{name}</span>
             )}
           </div>
         )}
@@ -145,7 +144,7 @@ export function Sidebar() {
               href={href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                active ? 'text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
+                active ? 'text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
               )}
               style={active ? { backgroundColor: color } : {}}
             >
@@ -172,14 +171,14 @@ export function Sidebar() {
       <div className="px-3 pb-2 space-y-0.5">
         <div className="flex items-center gap-2 px-3 py-2">
           <NotificationBell />
-          <span className="text-sm font-medium text-zinc-400">Notifications</span>
+          <span className="text-sm font-medium text-gray-500">Notifications</span>
         </div>
         {isAdmin && !isStaff && (
           <a
             href="https://hub.swipeupco.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
           >
             <ExternalLink className="h-[18px] w-[18px] flex-shrink-0" />
             SwipeUp Hub
@@ -187,7 +186,7 @@ export function Sidebar() {
         )}
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
         >
           <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
           Sign out
@@ -196,29 +195,29 @@ export function Sidebar() {
 
       {/* Profile strip */}
       {profile && (
-        <Link href="/settings" className="flex items-center gap-2.5 px-4 py-3 border-t border-zinc-800 hover:bg-zinc-900 transition-colors">
-          <div className="h-8 w-8 rounded-full bg-zinc-700 overflow-hidden flex-shrink-0 flex items-center justify-center">
+        <Link href="/settings" className="flex items-center gap-2.5 px-4 py-3 border-t border-gray-100 hover:bg-gray-50 transition-colors">
+          <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-              : <User className="h-4 w-4 text-zinc-400" />
+              : <User className="h-4 w-4 text-gray-400" />
             }
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">{profile.name || 'My Profile'}</p>
+            <p className="text-xs font-semibold text-gray-900 truncate">{profile.name || 'My Profile'}</p>
           </div>
         </Link>
       )}
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-zinc-800 flex flex-col items-center gap-2">
-        <p className="text-xs text-zinc-600">Built by</p>
+      <div className="px-5 py-4 border-t border-gray-100 flex flex-col items-center gap-2">
+        <p className="text-xs text-gray-400">Built by</p>
         <a href="https://swipeupco.com" target="_blank" rel="noopener noreferrer">
           <Image
             src="https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp"
             alt="SwipeUp"
             width={80}
             height={24}
-            className="object-contain opacity-50 hover:opacity-100 transition-opacity brightness-0 invert"
+            className="object-contain opacity-50 hover:opacity-100 transition-opacity"
             unoptimized
           />
         </a>

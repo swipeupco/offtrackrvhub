@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { User } from 'lucide-react'
+import { User, Plus } from 'lucide-react'
+import { useActiveClient } from '@/lib/active-client-context'
 
 export function TopBar() {
   const router = useRouter()
   const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null)
+  const { clientConfig } = useActiveClient()
+  const clientColor = clientConfig.color
 
   useEffect(() => {
     const supabase = createClient()
@@ -19,22 +22,33 @@ export function TopBar() {
   }, [])
 
   return (
-    <div className="flex justify-end px-8 py-4">
-      <button
-        onClick={() => router.push('/settings')}
-        className="flex items-center gap-2.5 rounded-xl bg-white border border-zinc-200 px-3 py-2 shadow-sm hover:shadow-md transition-shadow"
-      >
-        <div className="h-7 w-7 rounded-full bg-zinc-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-          ) : (
-            <User className="h-3.5 w-3.5 text-zinc-400" />
+    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
+      <div /> {/* spacer */}
+      <div className="flex items-center gap-3">
+        <a
+          href="/trello?newBrief=1"
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: clientColor }}
+        >
+          <Plus className="h-4 w-4" />
+          Create Brief
+        </a>
+        <button
+          onClick={() => router.push('/settings')}
+          className="flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 hover:bg-gray-100 transition-colors"
+        >
+          <div className="h-7 w-7 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
+            ) : (
+              <User className="h-3.5 w-3.5 text-gray-400" />
+            )}
+          </div>
+          {profile?.name && (
+            <span className="text-xs font-medium text-gray-700">{profile.name}</span>
           )}
-        </div>
-        {profile?.name && (
-          <span className="text-xs font-medium text-zinc-700">{profile.name}</span>
-        )}
-      </button>
+        </button>
+      </div>
     </div>
   )
 }
