@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Upload, Check, AlertCircle, Palette, Image as ImageIcon, X } from 'lucide-react'
+import { Upload, Check, AlertCircle, Palette, X } from 'lucide-react'
+import { useActiveClient } from '@/lib/active-client-context'
 
 interface ClientBranding {
   id: string
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function BrandingPanel({ onBrandingChange }: Props) {
+  const { clientId, loading: clientLoading } = useActiveClient()
   const [branding, setBranding]       = useState<ClientBranding | null>(null)
   const [loaded, setLoaded]           = useState(false)
   const [color, setColor]             = useState('#14C29F')
@@ -42,25 +44,13 @@ export function BrandingPanel({ onBrandingChange }: Props) {
   }
 
   useEffect(() => {
+    if (clientLoading) return
+    if (!clientId) { setLoaded(true); return }
+
     async function load() {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('client_id')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile?.client_id) return
-
       const { data: client } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', profile.client_id)
-        .single()
-
+        .from('clients').select('*').eq('id', clientId).single()
       if (client) {
         setBranding(client)
         setColor(client.color ?? '#14C29F')
@@ -70,7 +60,7 @@ export function BrandingPanel({ onBrandingChange }: Props) {
       setLoaded(true)
     }
     load()
-  }, [])
+  }, [clientId, clientLoading])
 
   async function uploadLogo(file: File) {
     if (!branding) return

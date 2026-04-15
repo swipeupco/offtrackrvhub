@@ -6,12 +6,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Tent, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
-  BarChart2, Package,
+  BarChart2, Package, ChevronDown,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/layout/NotificationBell'
+import { useActiveClient } from '@/lib/active-client-context'
 
 interface ClientConfig {
   color: string
@@ -36,35 +37,35 @@ const DEFAULT_CONFIG: ClientConfig = {
 export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
-  const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null)
-  const [config, setConfig]   = useState<ClientConfig>(DEFAULT_CONFIG)
+  const [profile, setProfile]       = useState<{ name: string | null; avatar_url: string | null } | null>(null)
+  const [config, setConfig]         = useState<ClientConfig>(DEFAULT_CONFIG)
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const { clientId, isAdmin, clients, activeClient, setClientId } = useActiveClient()
 
+  // Load client config whenever clientId changes
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('name, avatar_url, client_id')
+        .select('name, avatar_url')
         .eq('id', user.id)
         .single()
-
-      if (profileData) {
-        setProfile({ name: profileData.name, avatar_url: profileData.avatar_url })
-
-        if (profileData.client_id) {
-          const { data: client } = await supabase
-            .from('clients')
-            .select('color, logo_url, name, has_shopify, has_vans, products_label')
-            .eq('id', profileData.client_id)
-            .single()
-
-          if (client) setConfig(client)
-        }
-      }
+      if (profileData) setProfile({ name: profileData.name, avatar_url: profileData.avatar_url })
     })
   }, [])
+
+  useEffect(() => {
+    if (!clientId) { setConfig(DEFAULT_CONFIG); return }
+    const supabase = createClient()
+    supabase
+      .from('clients')
+      .select('color, logo_url, name, has_shopify, has_vans, products_label')
+      .eq('id', clientId)
+      .single()
+      .then(({ data }) => { if (data) setConfig(data) })
+  }, [clientId])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -90,16 +91,63 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
-      {/* Logo */}
-      <div className="flex items-center justify-center px-5 py-4 border-b border-zinc-800 min-h-[72px]">
-        {logo_url ? (
-          <img
-            src={logo_url}
-            alt={name}
-            className="max-h-10 max-w-[160px] object-contain brightness-0 invert"
-          />
+      {/* Logo / Client Switcher */}
+      <div className="border-b border-zinc-800">
+        {isAdmin ? (
+          <div className="relative">
+            <button
+              onClick={() => setSwitcherOpen(o => !o)}
+              className="flex items-center justify-between w-full px-4 py-3 hover:bg-zinc-900 transition-colors min-h-[64px]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: activeClient?.color ?? '#14C29F' }}
+                >
+                  {activeClient?.logo_url
+                    ? <img src={activeClient.logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
+                    : (activeClient?.name ?? 'SW').slice(0, 2).toUpperCase()
+                  }
+                </div>
+                <span className="text-sm font-semibold text-white truncate">
+                  {activeClient?.name ?? 'Select Client'}
+                </span>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-zinc-400 flex-shrink-0 transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {switcherOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 bg-zinc-900 border border-zinc-700 rounded-b-xl shadow-xl max-h-64 overflow-y-auto">
+                {clients.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setClientId(c.id); setSwitcherOpen(false) }}
+                    className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-left hover:bg-zinc-800 transition-colors ${c.id === clientId ? 'bg-zinc-800' : ''}`}
+                  >
+                    <div
+                      className="h-6 w-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: c.color }}
+                    >
+                      {c.logo_url
+                        ? <img src={c.logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
+                        : c.name.slice(0, 2).toUpperCase()
+                      }
+                    </div>
+                    <span className="text-sm text-zinc-200 truncate">{c.name}</span>
+                    {c.id === clientId && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[#14C29F] flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
-          <span className="text-lg font-bold text-white tracking-tight">{name}</span>
+          <div className="flex items-center justify-center px-5 py-4 min-h-[64px]">
+            {logo_url ? (
+              <img src={logo_url} alt={name} className="max-h-10 max-w-[160px] object-contain brightness-0 invert" />
+            ) : (
+              <span className="text-lg font-bold text-white tracking-tight">{name}</span>
+            )}
+          </div>
         )}
       </div>
 

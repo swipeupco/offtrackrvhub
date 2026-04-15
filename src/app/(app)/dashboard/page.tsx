@@ -10,6 +10,7 @@ import { Tent, Play, Clock, Video, ExternalLink, CheckCircle2, RefreshCw, Loader
 import { Badge } from '@/components/ui/Badge'
 import Link from 'next/link'
 import type { Show, VideoShoot } from '@/types'
+import { useActiveClient } from '@/lib/active-client-context'
 
 interface Brief {
   id: string
@@ -31,45 +32,44 @@ export default function DashboardPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   useEffect(() => {
+    if (clientLoading) return
+    if (!clientId) { setLoading(false); return }
+
     async function load() {
+      setLoading(true)
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
 
-      const { data: profile } = await supabase
-        .from('profiles').select('client_id').eq('id', user.id).single()
+      const { data: client } = await supabase
+        .from('clients').select('color, has_vans').eq('id', clientId).single()
+      if (client?.color) setClientColor(client.color)
+      const clientHasVans = client?.has_vans ?? false
+      setHasVans(clientHasVans)
 
-      if (profile?.client_id) {
-        const { data: client } = await supabase
-          .from('clients').select('color, has_vans').eq('id', profile.client_id).single()
-        if (client?.color) setClientColor(client.color)
-        const clientHasVans = client?.has_vans ?? false
-        setHasVans(clientHasVans)
+      if (clientHasVans) {
+        const [showsRes, shootsRes] = await Promise.all([
+          supabase.from('shows').select('*').order('start_date', { ascending: true }),
+          supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true }),
+        ])
+        setShows((showsRes.data as Show[]) ?? [])
+        setShoots((shootsRes.data as VideoShoot[]) ?? [])
+      } else {
+        setShows([]); setShoots([])
+      }
 
-        if (clientHasVans) {
-          const [showsRes, shootsRes] = await Promise.all([
-            supabase.from('shows').select('*').order('start_date', { ascending: true }),
-            supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true }),
-          ])
-          setShows((showsRes.data as Show[]) ?? [])
-          setShoots((shootsRes.data as VideoShoot[]) ?? [])
-        }
-
-        const { data: briefData } = await supabase
-          .from('briefs')
-          .select('id, name, campaign, content_type, pipeline_status, draft_url, due_date')
-          .eq('client_id', profile.client_id)
-          .neq('pipeline_status', 'approved')
-          .order('created_at', { ascending: false })
-        setBriefs(briefData ?? [])
-      } // end if profile.client_id
-
+      const { data: briefData } = await supabase
+        .from('briefs')
+        .select('id, name, campaign, content_type, pipeline_status, draft_url, due_date')
+        .eq('client_id', clientId)
+        .neq('pipeline_status', 'approved')
+        .order('created_at', { ascending: false })
+      setBriefs(briefData ?? [])
       setLoading(false)
     }
     load()
-  }, [])
+  }, [clientId, clientLoading])
 
   const today = new Date()
   const todayStr = format(today, 'yyyy-MM-dd')
