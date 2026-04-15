@@ -726,9 +726,10 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onApprove: () => void
   onRequestRevisions: () => void
 }) {
-  const [comments, setComments]         = useState<Comment[]>([])
-  const [newComment, setNewComment]     = useState('')
-  const [sending, setSending]           = useState(false)
+  const [comments, setComments]           = useState<Comment[]>([])
+  const [newComment, setNewComment]       = useState('')
+  const [sending, setSending]             = useState(false)
+  const [commentError, setCommentError]   = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
   const [mentionOpen, setMentionOpen]   = useState(false)
@@ -824,7 +825,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     const { data: profile }  = await supabase.from('profiles').select('name').eq('id', user!.id).single()
     const authorName = profile?.name ?? user?.email?.split('@')[0] ?? 'Someone'
 
-    await supabase.from('brief_comments').insert({
+    const { error: commentError } = await supabase.from('brief_comments').insert({
       brief_id:    brief.id,
       content:     text,
       user_id:     user?.id,
@@ -832,6 +833,17 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
       user_name:   authorName,
       is_internal: false,
     })
+
+    if (commentError) {
+      console.error('Comment insert error:', commentError)
+      setCommentError(commentError.code === '42P01'
+        ? 'The comments table doesn\'t exist yet. Run the SQL setup in Supabase (see instructions).'
+        : `Failed to send: ${commentError.message}`)
+      setSending(false)
+      return
+    }
+
+    setCommentError(null)
 
     // Fire a notification so staff + tagged users see it
     const notifLink = `/trello?briefId=${brief.id}`
@@ -1062,9 +1074,13 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </form>
-            <p className="text-[10px] text-gray-400 mt-1.5 pl-1">
-              <AtSign className="inline h-2.5 w-2.5" /> to mention · Enter to send · Shift+Enter for new line
-            </p>
+            {commentError ? (
+              <p className="text-[10px] text-red-500 mt-1.5 pl-1 font-medium">{commentError}</p>
+            ) : (
+              <p className="text-[10px] text-gray-400 mt-1.5 pl-1">
+                <AtSign className="inline h-2.5 w-2.5" /> to mention · Enter to send · Shift+Enter for new line
+              </p>
+            )}
           </div>
         </div>
       </div>
