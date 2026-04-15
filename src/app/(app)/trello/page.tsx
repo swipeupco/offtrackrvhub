@@ -836,29 +836,32 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
 
     if (commentError) {
       console.error('Comment insert error:', commentError)
-      setCommentError(commentError.code === '42P01'
-        ? 'The comments table doesn\'t exist yet. Run the SQL setup in Supabase (see instructions).'
-        : `Failed to send: ${commentError.message}`)
+      setCommentError(
+        commentError.code === '42P01'
+          ? "The comments table doesn't exist yet — run the SQL setup in Supabase."
+          : `Failed to send: ${commentError.message}`
+      )
       setSending(false)
       return
     }
 
+    // Comment saved — clear input immediately
     setCommentError(null)
-
-    // Fire a notification so staff + tagged users see it
-    const notifLink = `/trello?briefId=${brief.id}`
-    const snippet   = text.length > 80 ? text.slice(0, 80) + '…' : text
-    await supabase.from('notifications').insert({
-      message:   `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
-      type:      'comment',
-      link:      notifLink,
-      resolved:  false,
-      client_id: brief.client_id,
-      brief_id:  brief.id,
-    })
-
     setNewComment('')
     setSending(false)
+
+    // Fire notification best-effort (never blocks the comment)
+    try {
+      const snippet = text.length > 80 ? text.slice(0, 80) + '…' : text
+      await supabase.from('notifications').insert({
+        message:  `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
+        type:     'comment',
+        link:     `/trello?briefId=${brief.id}`,
+        resolved: false,
+      })
+    } catch (err) {
+      console.warn('Notification insert failed (non-critical):', err)
+    }
   }
 
   const filteredMentions = mentionUsers.filter(u =>
