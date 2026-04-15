@@ -28,6 +28,8 @@ interface Brief {
   client_id: string
   sort_order?: number
   cover_url?: string | null
+  sizes?: string[] | null
+  ref_url?: string | null
 }
 
 interface Comment {
@@ -732,6 +734,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onApprove: () => void
   onRequestRevisions: () => void
 }) {
+  // ── Comment state ──
   const [comments, setComments]             = useState<Comment[]>([])
   const [newComment, setNewComment]         = useState('')
   const [sending, setSending]               = useState(false)
@@ -747,6 +750,31 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const [mentionStart, setMentionStart]     = useState(0)
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // ── Editable brief fields ──
+  const [localName, setLocalName]           = useState(brief.name)
+  const [localDesc, setLocalDesc]           = useState(brief.description ?? '')
+  const [localCampaign, setLocalCampaign]   = useState(brief.campaign ?? '')
+  const [localType, setLocalType]           = useState(brief.content_type ?? '')
+  const [localSizes, setLocalSizes]         = useState<string[]>(brief.sizes ?? [])
+  const [localRefUrl, setLocalRefUrl]       = useState(brief.ref_url ?? '')
+  const [localDueDate, setLocalDueDate]     = useState(brief.due_date ?? '')
+  const [editingField, setEditingField]     = useState<string | null>(null)
+  const [savingField, setSavingField]       = useState<string | null>(null)
+
+  async function saveField(field: string, value: unknown) {
+    setSavingField(field)
+    const supabase = createClient()
+    await supabase.from('briefs').update({ [field]: value || null }).eq('id', brief.id)
+    setSavingField(null)
+    setEditingField(null)
+  }
+
+  function toggleSize(s: string) {
+    const next = localSizes.includes(s) ? localSizes.filter(x => x !== s) : [...localSizes, s]
+    setLocalSizes(next)
+    saveField('sizes', next.length ? next : null)
+  }
 
   // Load current user + mentionable users
   useEffect(() => {
@@ -956,91 +984,157 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
         {/* ── Body: two columns ── */}
         <div className="flex flex-1 overflow-hidden min-h-0">
 
-          {/* ── LEFT: Brief details ── */}
-          <div className="w-[42%] flex-shrink-0 border-r border-gray-100 overflow-y-auto">
-            <div className="p-6 space-y-5">
+          {/* ── LEFT: Editable brief details ── */}
+          <div className="w-[52%] flex-shrink-0 border-r border-gray-100 overflow-y-auto">
+            <div className="p-6 space-y-6">
 
               {/* Draft / action buttons */}
-              {hasDraft ? (
-                <a
-                  href={brief.draft_url!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white w-full hover:opacity-90 transition-opacity shadow-sm"
-                  style={{ backgroundColor: clientColor }}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  View Draft
-                </a>
-              ) : (
-                <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-400 bg-gray-50 border border-dashed border-gray-200 w-full">
-                  <Clock className="h-4 w-4" />
-                  Draft coming soon
-                </div>
-              )}
-
-              {isReview && hasDraft && !isApproved && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={onRequestRevisions}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
+              <div className="space-y-2">
+                {hasDraft ? (
+                  <a
+                    href={brief.draft_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white w-full hover:opacity-90 transition-opacity shadow-sm"
+                    style={{ backgroundColor: clientColor }}
                   >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Request Revisions
-                  </button>
-                  <button
-                    onClick={onApprove}
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Approve
-                  </button>
-                </div>
-              )}
+                    <ExternalLink className="h-4 w-4" />
+                    View Draft
+                  </a>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-400 bg-gray-50 border border-dashed border-gray-200 w-full">
+                    <Clock className="h-4 w-4" />
+                    Draft coming soon
+                  </div>
+                )}
+                {isReview && hasDraft && !isApproved && (
+                  <div className="flex gap-2">
+                    <button onClick={onRequestRevisions}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors">
+                      <RotateCcw className="h-3.5 w-3.5" /> Request Revisions
+                    </button>
+                    <button onClick={onApprove}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {/* Content type detail */}
-              {typeInfo && (
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Content Type</p>
-                  <div className="flex items-center gap-2 rounded-xl p-3 border border-gray-100 bg-gray-50">
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: `${typeInfo.color}18` }}>
-                      <typeInfo.icon className="h-4 w-4" style={{ color: typeInfo.color }} />
-                    </div>
-                    <span className="text-sm font-semibold text-gray-700">{typeInfo.id}</span>
+              {/* ── Description ── */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</p>
+                <textarea
+                  rows={6}
+                  value={localDesc}
+                  onChange={e => setLocalDesc(e.target.value)}
+                  onFocus={() => setEditingField('description')}
+                  onBlur={() => { if (editingField === 'description') saveField('description', localDesc) }}
+                  placeholder="Add a more detailed description…"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none hover:border-gray-300"
+                  style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
+                />
+                {savingField === 'description' && (
+                  <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1"><Loader2 className="h-2.5 w-2.5 animate-spin" /> Saving…</p>
+                )}
+              </div>
+
+              {/* ── Custom Fields ── */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Details</p>
+                <div className="space-y-3">
+
+                  {/* Campaign Name */}
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+                    <span className="text-xs font-medium text-gray-500">Campaign</span>
+                    <input
+                      type="text"
+                      value={localCampaign}
+                      onChange={e => setLocalCampaign(e.target.value)}
+                      onFocus={() => setEditingField('campaign')}
+                      onBlur={() => { if (editingField === 'campaign') saveField('campaign', localCampaign) }}
+                      placeholder="Add campaign name…"
+                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
+                    />
+                  </div>
+
+                  {/* Due Date */}
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+                    <span className="text-xs font-medium text-gray-500">Due Date</span>
+                    <input
+                      type="date"
+                      value={localDueDate}
+                      onChange={e => { setLocalDueDate(e.target.value); saveField('due_date', e.target.value) }}
+                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
+                    />
+                  </div>
+
+                  {/* Link to Inspiration */}
+                  <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+                    <span className="text-xs font-medium text-gray-500">Inspiration</span>
+                    <input
+                      type="url"
+                      value={localRefUrl}
+                      onChange={e => setLocalRefUrl(e.target.value)}
+                      onFocus={() => setEditingField('ref_url')}
+                      onBlur={() => { if (editingField === 'ref_url') saveField('ref_url', localRefUrl) }}
+                      placeholder="https://…"
+                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
+                    />
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* Description */}
-              {brief.description && (
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Brief Details</p>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
-                    {brief.description}
-                  </p>
-                </div>
-              )}
-
-              {/* Status info */}
+              {/* ── Content Type ── */}
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Status</p>
-                <div className="flex items-center gap-2">
-                  {isApproved ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Approved
-                    </span>
-                  ) : isReview ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100">
-                      <Play className="h-3.5 w-3.5" /> In Production
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-100">
-                      <Clock className="h-3.5 w-3.5" /> In Backlog
-                    </span>
-                  )}
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Content Type</p>
+                <div className="flex flex-wrap gap-2">
+                  {CONTENT_TYPES.map(t => {
+                    const active = localType === t.id
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => { setLocalType(t.id); saveField('content_type', t.id) }}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold border transition-all"
+                        style={active
+                          ? { backgroundColor: t.color, color: '#fff', borderColor: t.color }
+                          : { backgroundColor: `${t.color}12`, color: t.color, borderColor: `${t.color}30` }
+                        }
+                      >
+                        <t.icon className="h-3.5 w-3.5" />
+                        {t.id}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
+
+              {/* ── Aspect Ratios / Sizes ── */}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Aspect Ratios</p>
+                <div className="flex flex-wrap gap-2">
+                  {SIZES.map(s => {
+                    const active = localSizes.includes(s)
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => toggleSize(s)}
+                        className="rounded-xl px-3 py-2 text-xs font-semibold border transition-all"
+                        style={active
+                          ? { backgroundColor: clientColor, color: '#fff', borderColor: clientColor }
+                          : { backgroundColor: '#f9fafb', color: '#6b7280', borderColor: '#e5e7eb' }
+                        }
+                      >
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -1263,11 +1357,14 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
       .in('pipeline_status', ['in_production','client_review','qa_review'])
     const productionEmpty = (inProd?.length ?? 0) === 0
 
+    const refUrl = (refUrls ?? []).find(u => u.trim()) ?? null
     await supabase.from('briefs').insert({
       name:            name.trim(),
       description:     description.trim() || null,
       campaign:        campaign.trim() || null,
       content_type:    contentType || null,
+      sizes:           sizes.length ? sizes : null,
+      ref_url:         refUrl,
       client_id:       clientId,
       pipeline_status: productionEmpty ? 'in_production' : 'backlog',
       internal_status: productionEmpty ? 'in_production' : 'backlog',
