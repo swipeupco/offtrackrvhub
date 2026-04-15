@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, Check, AlertCircle, Palette, X } from 'lucide-react'
 import { useActiveClient } from '@/lib/active-client-context'
+import type { ClientConfig } from '@/lib/active-client-context'
 
 interface ClientBranding {
   id: string
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export function BrandingPanel({ onBrandingChange }: Props) {
-  const { clientId, loading: clientLoading } = useActiveClient()
+  const { clientId, loading: clientLoading, updateClientConfig } = useActiveClient()
   const [branding, setBranding]       = useState<ClientBranding | null>(null)
   const [loaded, setLoaded]           = useState(false)
   const [color, setColor]             = useState('#14C29F')
@@ -133,6 +134,7 @@ export function BrandingPanel({ onBrandingChange }: Props) {
       const updated = { ...branding, color, name: displayName, logo_url: logoUrl }
       setBranding(updated)
       onBrandingChange?.(updated)
+      updateClientConfig({ color, name: displayName, logo_url: logoUrl })
     }
   }
 

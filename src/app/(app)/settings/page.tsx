@@ -10,12 +10,16 @@ import { Input } from '@/components/ui/Input'
 import { Plus, Pencil, Trash2, Settings2, User, Lock, Camera, Check, AlertCircle } from 'lucide-react'
 import type { DeliverablesConfig, DeliverableFormData } from '@/types'
 import { BrandingPanel } from '@/components/settings/BrandingPanel'
+import { useActiveClient } from '@/lib/active-client-context'
 
 const emptyDel: DeliverableFormData = { name: '', days_before_show: 14 }
 
 type Toast = { type: 'success' | 'error'; message: string }
 
 export default function SettingsPage() {
+  const { clientConfig } = useActiveClient()
+  const clientColor = clientConfig.color
+
   // Profile
   const [name, setName]         = useState('')
   const [role, setRole]         = useState('')
@@ -219,7 +223,7 @@ export default function SettingsPage() {
               onClick={handleProfileSave}
               disabled={profileSaving}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: '#14C29F' }}
+              style={{ backgroundColor: clientColor }}
             >
               {profileSaving ? 'Saving…' : 'Save Profile'}
             </button>
@@ -270,7 +274,7 @@ export default function SettingsPage() {
               onClick={handleAccountSave}
               disabled={accountSaving}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: '#14C29F' }}
+              style={{ backgroundColor: clientColor }}
             >
               {accountSaving ? 'Saving…' : 'Update Account'}
             </button>

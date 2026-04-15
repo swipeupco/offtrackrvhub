@@ -14,58 +14,25 @@ import { createClient } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { useActiveClient } from '@/lib/active-client-context'
 
-interface ClientConfig {
-  color: string
-  logo_url: string | null
-  name: string
-  has_shopify: boolean
-  has_vans: boolean
-  products_label: string
-}
-
-const SWIPEUP_LOGO = 'https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp'
-
-const DEFAULT_CONFIG: ClientConfig = {
-  color: '#14C29F',
-  logo_url: SWIPEUP_LOGO,
-  name: 'SwipeUp.',
-  has_shopify: false,
-  has_vans: false,
-  products_label: 'Products',
-}
-
 export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
-  const [profile, setProfile]       = useState<{ name: string | null; avatar_url: string | null } | null>(null)
-  const [config, setConfig]         = useState<ClientConfig>(DEFAULT_CONFIG)
+  const [profile, setProfile]           = useState<{ name: string | null; avatar_url: string | null } | null>(null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
-  const { clientId, isAdmin, clients, activeClient, setClientId } = useActiveClient()
 
-  // Load client config whenever clientId changes
+  // All config now comes from context — updates instantly when branding saved
+  const { clientId, clientConfig, isAdmin, clients, setClientId } = useActiveClient()
+  const { color, logo_url, name, has_shopify, has_vans, products_label } = clientConfig
+
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: profileData } = await supabase
-        .from('profiles')
-        .select('name, avatar_url')
-        .eq('id', user.id)
-        .single()
+        .from('profiles').select('name, avatar_url').eq('id', user.id).single()
       if (profileData) setProfile({ name: profileData.name, avatar_url: profileData.avatar_url })
     })
   }, [])
-
-  useEffect(() => {
-    if (!clientId) { setConfig(DEFAULT_CONFIG); return }
-    const supabase = createClient()
-    supabase
-      .from('clients')
-      .select('color, logo_url, name, has_shopify, has_vans, products_label')
-      .eq('id', clientId)
-      .single()
-      .then(({ data }) => { if (data) setConfig(data) })
-  }, [clientId])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -74,23 +41,24 @@ export function Sidebar() {
     router.refresh()
   }
 
-  const { color, logo_url, name, has_shopify, has_vans, products_label } = config
-
-  // Build nav dynamically based on client config
   const nav = [
-    { href: '/dashboard',               label: 'Dashboard',        icon: LayoutDashboard, show: true },
-    { href: '/trello',                  label: 'Creative Pipeline', icon: Columns2,        show: true },
-    { href: '/calendar',                label: 'Calendar',         icon: CalendarDays,    show: true },
-    { href: '/shows',                   label: 'Shows',            icon: Tent,            show: has_vans },
-    { href: '/shoots',                  label: 'Video Shoots',     icon: Video,           show: has_vans },
-    { href: has_vans ? '/inventory' : '/products', label: products_label, icon: has_vans ? Caravan : Package, show: true },
-    { href: '/shopify',                 label: 'Shopify',          icon: ShoppingBag,     show: has_shopify },
-    { href: '/social',                  label: 'Social',           icon: BarChart2,       show: true },
-    { href: '/settings',                label: 'Settings',         icon: Settings,        show: true },
+    { href: '/dashboard',                                label: 'Dashboard',        icon: LayoutDashboard, show: true },
+    { href: '/trello',                                   label: 'Creative Pipeline', icon: Columns2,       show: true },
+    { href: '/calendar',                                 label: 'Calendar',         icon: CalendarDays,   show: true },
+    { href: '/shows',                                    label: 'Shows',            icon: Tent,           show: has_vans },
+    { href: '/shoots',                                   label: 'Video Shoots',     icon: Video,          show: has_vans },
+    { href: has_vans ? '/inventory' : '/products',       label: products_label,     icon: has_vans ? Caravan : Package, show: true },
+    { href: '/shopify',                                  label: 'Shopify',          icon: ShoppingBag,    show: has_shopify },
+    { href: '/social',                                   label: 'Social',           icon: BarChart2,      show: true },
+    { href: '/settings',                                 label: 'Settings',         icon: Settings,       show: true },
   ].filter(item => item.show)
+
+  // Current client entry for the admin switcher button
+  const activeClientEntry = clients.find(c => c.id === clientId)
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
+
       {/* Logo / Client Switcher */}
       <div className="border-b border-zinc-800">
         {isAdmin ? (
@@ -102,16 +70,14 @@ export function Sidebar() {
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
-                  style={{ backgroundColor: activeClient?.color ?? '#14C29F' }}
+                  style={{ backgroundColor: color }}
                 >
-                  {activeClient?.logo_url
-                    ? <img src={activeClient.logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
-                    : (activeClient?.name ?? 'SW').slice(0, 2).toUpperCase()
+                  {logo_url && logo_url !== 'https://cdn.prod.website-files.com/69c7af78672744f6f493aa6f/69c7af78672744f6f493aaa0_65efbf2df727d6b871fa6c3d_oxfSjvpwrr6ZmYc8crE9d9LKmu8.webp'
+                    ? <img src={logo_url} alt="" className="h-full w-full object-contain p-0.5 brightness-0 invert" />
+                    : name.slice(0, 2).toUpperCase()
                   }
                 </div>
-                <span className="text-sm font-semibold text-white truncate">
-                  {activeClient?.name ?? 'Select Client'}
-                </span>
+                <span className="text-sm font-semibold text-white truncate">{name}</span>
               </div>
               <ChevronDown className={`h-4 w-4 text-zinc-400 flex-shrink-0 transition-transform ${switcherOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -141,6 +107,7 @@ export function Sidebar() {
             )}
           </div>
         ) : (
+          // Regular client user — show their logo or name
           <div className="flex items-center justify-center px-5 py-4 min-h-[64px]">
             {logo_url ? (
               <img src={logo_url} alt={name} className="max-h-10 max-w-[160px] object-contain brightness-0 invert" />
@@ -184,7 +151,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Notifications + Logout */}
+      {/* Notifications + Sign out */}
       <div className="px-3 pb-2 space-y-0.5">
         <div className="flex items-center gap-2 px-3 py-2">
           <NotificationBell />
@@ -203,11 +170,10 @@ export function Sidebar() {
       {profile && (
         <Link href="/settings" className="flex items-center gap-2.5 px-4 py-3 border-t border-zinc-800 hover:bg-zinc-900 transition-colors">
           <div className="h-8 w-8 rounded-full bg-zinc-700 overflow-hidden flex-shrink-0 flex items-center justify-center">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-            ) : (
-              <User className="h-4 w-4 text-zinc-400" />
-            )}
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
+              : <User className="h-4 w-4 text-zinc-400" />
+            }
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-white truncate">{profile.name || 'My Profile'}</p>
