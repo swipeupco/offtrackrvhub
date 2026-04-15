@@ -751,6 +751,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Derived from brief prop (used before state hooks so declared early)
+  const isReview   = ['in_production', 'client_review', 'qa_review'].includes(brief.pipeline_status)
+  const isApproved = brief.pipeline_status === 'approved'
+  const hasDraft   = !!brief.draft_url
+  const typeInfo   = CONTENT_TYPES.find(t => t.id === brief.content_type)
+
   // ── Animated dots for "working on it" ──
   const [dots, setDots] = useState('.')
   useEffect(() => {
@@ -929,10 +935,6 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     u.name.toLowerCase().includes(mentionQuery.toLowerCase())
   )
 
-  const typeInfo   = CONTENT_TYPES.find(t => t.id === brief.content_type)
-  const hasDraft   = !!brief.draft_url
-  const isReview   = ['in_production', 'client_review', 'qa_review'].includes(brief.pipeline_status)
-  const isApproved = brief.pipeline_status === 'approved'
 
   function getInitials(name: string | null) {
     if (!name) return '?'
