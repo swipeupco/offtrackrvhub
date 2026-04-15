@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, CalendarDays, Tent, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
-  BarChart2, Package, ChevronDown,
+  BarChart2, Package, ChevronDown, ExternalLink,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
@@ -157,6 +157,17 @@ export function Sidebar() {
           <NotificationBell />
           <span className="text-sm font-medium text-zinc-400">Notifications</span>
         </div>
+        {isAdmin && (
+          <a
+            href="https://hub.swipeupco.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
+          >
+            <ExternalLink className="h-[18px] w-[18px] flex-shrink-0" />
+            SwipeUp Hub
+          </a>
+        )}
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
