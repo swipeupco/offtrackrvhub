@@ -128,7 +128,7 @@ export default function CreativePipeline() {
     setSelectedBrief(prev => {
       if (!prev) return null
       const updated = all.find(b => b.id === prev.id)
-      return updated ?? prev
+      return updated ?? null  // null closes the modal if the brief was deleted
     })
     setLoading(false)
   }
