@@ -530,7 +530,10 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
 
   return (
     <div
-      className={`rounded-2xl bg-white border border-gray-100 p-4 cursor-pointer transition-all ${isDragging ? 'shadow-2xl rotate-1 scale-105' : 'shadow-sm hover:shadow-md'}`}
+      className={`rounded-2xl bg-white p-4 cursor-pointer transition-all ${isDragging ? 'rotate-1 scale-105' : 'border border-gray-100 shadow-sm hover:shadow-md'}`}
+      style={isDragging ? {
+        boxShadow: `0 0 0 2px ${clientColor}, 0 20px 40px ${clientColor}55, 0 8px 24px rgba(0,0,0,0.15)`,
+      } : {}}
       onClick={onOpen}
     >
       {/* Drag handle row */}
