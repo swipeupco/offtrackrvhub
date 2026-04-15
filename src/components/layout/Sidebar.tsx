@@ -3,39 +3,39 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Tent, Settings, Caravan, Video, LogOut, Columns2, User, Plus } from 'lucide-react'
+import {
+  LayoutDashboard, CalendarDays, Tent, Settings, Caravan,
+  Video, LogOut, Columns2, User, Plus, ShoppingBag,
+  BarChart2, Package,
+} from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 
-const nav = [
-  { href: '/dashboard',  label: 'Dashboard',       icon: LayoutDashboard },
-  { href: '/shows',      label: 'Shows',            icon: Tent },
-  { href: '/calendar',   label: 'Calendar',         icon: CalendarDays },
-  { href: '/shoots',     label: 'Video Shoots',     icon: Video },
-  { href: '/inventory',  label: 'Stock',            icon: Caravan },
-  { href: '/trello',     label: 'Creative Pipeline',icon: Columns2 },
-  { href: '/settings',   label: 'Settings',         icon: Settings },
-]
-
-interface ClientBranding {
+interface ClientConfig {
   color: string
   logo_url: string | null
   name: string
+  has_shopify: boolean
+  has_vans: boolean
+  products_label: string
 }
 
-const DEFAULT_BRANDING: ClientBranding = {
+const DEFAULT_CONFIG: ClientConfig = {
   color: '#14C29F',
   logo_url: null,
-  name: 'Off Track RV',
+  name: 'Command Centre',
+  has_shopify: false,
+  has_vans: false,
+  products_label: 'Products',
 }
 
 export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
   const [profile, setProfile] = useState<{ name: string | null; avatar_url: string | null } | null>(null)
-  const [branding, setBranding] = useState<ClientBranding>(DEFAULT_BRANDING)
+  const [config, setConfig]   = useState<ClientConfig>(DEFAULT_CONFIG)
 
   useEffect(() => {
     const supabase = createClient()
@@ -54,11 +54,11 @@ export function Sidebar() {
         if (profileData.client_id) {
           const { data: client } = await supabase
             .from('clients')
-            .select('color, logo_url, name')
+            .select('color, logo_url, name, has_shopify, has_vans, products_label')
             .eq('id', profileData.client_id)
             .single()
 
-          if (client) setBranding(client)
+          if (client) setConfig(client)
         }
       }
     })
@@ -71,7 +71,20 @@ export function Sidebar() {
     router.refresh()
   }
 
-  const { color, logo_url, name } = branding
+  const { color, logo_url, name, has_shopify, has_vans, products_label } = config
+
+  // Build nav dynamically based on client config
+  const nav = [
+    { href: '/dashboard', label: 'Dashboard',        icon: LayoutDashboard, show: true },
+    { href: '/trello',    label: 'Creative Pipeline', icon: Columns2,        show: true },
+    { href: '/calendar',  label: 'Calendar',          icon: CalendarDays,    show: true },
+    { href: '/shows',     label: 'Shows',             icon: Tent,            show: true },
+    { href: '/shoots',    label: 'Video Shoots',      icon: Video,           show: true },
+    { href: '/inventory', label: has_vans ? products_label : products_label, icon: has_vans ? Caravan : Package, show: true },
+    { href: '/shopify',   label: 'Shopify',           icon: ShoppingBag,     show: has_shopify },
+    { href: '/social',    label: 'Social',            icon: BarChart2,       show: true },
+    { href: '/settings',  label: 'Settings',          icon: Settings,        show: true },
+  ].filter(item => item.show)
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-black border-r border-zinc-800 text-white">
@@ -84,14 +97,7 @@ export function Sidebar() {
             className="max-h-10 max-w-[160px] object-contain brightness-0 invert"
           />
         ) : (
-          <Image
-            src="https://www.offtrackrv.com.au/content/images/off-track-rv-logo.svg"
-            alt="Off Track RV"
-            width={160}
-            height={48}
-            className="object-contain brightness-0 invert"
-            unoptimized
-          />
+          <span className="text-lg font-bold text-white tracking-tight">{name}</span>
         )}
       </div>
 
