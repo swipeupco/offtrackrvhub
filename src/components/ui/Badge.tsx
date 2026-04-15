@@ -27,7 +27,7 @@ export function Badge({ children, variant = 'default', className }: Props) {
         variants[variant],
         className
       )}
-      style={variant === 'info' ? { backgroundColor: '#14C29F' } : {}}
+      style={variant === 'info' ? { backgroundColor: 'var(--brand, #14C29F)' } : {}}
     >
       {children}
     </span>

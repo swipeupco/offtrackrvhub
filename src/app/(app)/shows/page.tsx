@@ -130,7 +130,7 @@ export default function ShowsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search shows..."
-            className="w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-4 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#14C29F]/30 focus:border-[#14C29F]"
+            className="w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-4 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[var(--brand, #14C29F)]/30 focus:border-[var(--brand, #14C29F)]"
           />
         </div>
 
@@ -146,7 +146,7 @@ export default function ShowsPage() {
               onClick={() => setView(mode)}
               title={label}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors border-r last:border-r-0 border-zinc-200"
-              style={view === mode ? { backgroundColor: '#14C29F', color: '#fff' } : { color: '#71717a' }}
+              style={view === mode ? { backgroundColor: 'var(--brand, #14C29F)', color: '#fff' } : { color: '#71717a' }}
             >
               <Icon className="h-3.5 w-3.5" />
               {label}
@@ -302,7 +302,7 @@ function ShowListView({
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="flex flex-wrap gap-1">
                     {(show.hubspot_audience ?? []).map(a => (
-                      <span key={a} className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: '#14C29F' }}>{a}</span>
+                      <span key={a} className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: 'var(--brand, #14C29F)' }}>{a}</span>
                     ))}
                   </div>
                 </td>
@@ -310,7 +310,7 @@ function ShowListView({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1 justify-end">
                     <button onClick={() => onViewDetails(show)} className="rounded-lg px-2 py-1 text-xs font-medium border border-zinc-200 text-zinc-600 hover:bg-zinc-50">Details</button>
-                    <button onClick={() => onViewTasks(show)} className="rounded-lg px-2 py-1 text-xs text-zinc-500 hover:text-[#14C29F] flex items-center gap-0.5">
+                    <button onClick={() => onViewTasks(show)} className="rounded-lg px-2 py-1 text-xs text-zinc-500 hover:text-[var(--brand, #14C29F)] flex items-center gap-0.5">
                       {taskCountFor(show.id)} tasks <ChevronRight className="h-3 w-3" />
                     </button>
                     <div className="opacity-0 group-hover:opacity-100 flex items-center transition-opacity">

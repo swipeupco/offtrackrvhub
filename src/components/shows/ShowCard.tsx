@@ -76,7 +76,7 @@ export function ShowCard({ show, taskCount, urgentCount, onEdit, onDelete, onVie
           <div className="flex items-center gap-1 flex-wrap">
             <Users className="h-3 w-3 text-zinc-400 flex-shrink-0" />
             {show.hubspot_audience.map(a => (
-              <span key={a} className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: '#14C29F' }}>
+              <span key={a} className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: 'var(--brand, #14C29F)' }}>
                 {a}
               </span>
             ))}
@@ -94,7 +94,7 @@ export function ShowCard({ show, taskCount, urgentCount, onEdit, onDelete, onVie
         <div className="mt-auto pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
           <button
             onClick={() => onViewTasks(show)}
-            className="flex items-center gap-0.5 text-xs text-zinc-500 hover:text-[#14C29F] transition-colors"
+            className="flex items-center gap-0.5 text-xs text-zinc-500 hover:text-[var(--brand, #14C29F)] transition-colors"
           >
             <span>{taskCount} task{taskCount !== 1 ? 's' : ''}</span>
             {urgentCount > 0 && <Badge variant="danger" className="ml-1 text-[10px]">{urgentCount} urgent</Badge>}

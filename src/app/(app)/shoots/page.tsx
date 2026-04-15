@@ -157,7 +157,7 @@ export default function ShootsPage() {
         <button
           onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#14C29F' }}
+          style={{ backgroundColor: 'var(--brand, #14C29F)' }}
         >
           <CalendarDays className="h-4 w-4" />
           Book Shoot
@@ -217,7 +217,7 @@ export default function ShootsPage() {
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Atlas Walkthrough Shoot"
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#14C29F]/40 focus:border-[#14C29F]"
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[var(--brand, #14C29F)]/40 focus:border-[var(--brand, #14C29F)]"
                 />
               </div>
 
@@ -233,7 +233,7 @@ export default function ShootsPage() {
                         onClick={() => toggleType(id)}
                         className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
                           active
-                            ? 'border-[#14C29F] bg-[#14C29F]/10 text-[#14C29F]'
+                            ? 'border-[var(--brand, #14C29F)] bg-[var(--brand, #14C29F)]/10 text-[var(--brand, #14C29F)]'
                             : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'
                         }`}
                       >
@@ -257,11 +257,11 @@ export default function ShootsPage() {
                         onClick={() => setForm(f => ({ ...f, duration: id }))}
                         className={`flex flex-col items-center gap-0.5 rounded-xl border-2 px-4 py-3 transition-all ${
                           active
-                            ? 'border-[#14C29F] bg-[#14C29F]/10'
+                            ? 'border-[var(--brand, #14C29F)] bg-[var(--brand, #14C29F)]/10'
                             : 'border-zinc-200 hover:border-zinc-300'
                         }`}
                       >
-                        <span className={`text-sm font-semibold ${active ? 'text-[#14C29F]' : 'text-zinc-700'}`}>{label}</span>
+                        <span className={`text-sm font-semibold ${active ? 'text-[var(--brand, #14C29F)]' : 'text-zinc-700'}`}>{label}</span>
                         <span className="text-[10px] text-zinc-400">{desc}</span>
                       </button>
                     )
@@ -287,7 +287,7 @@ export default function ShootsPage() {
                         type="date"
                         value={form[key]}
                         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                        className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#14C29F]/40 focus:border-[#14C29F]"
+                        className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[var(--brand, #14C29F)]/40 focus:border-[var(--brand, #14C29F)]"
                         required={i === 0}
                       />
                       <span className="text-[10px] text-zinc-400 w-24 flex-shrink-0">{label}</span>
@@ -304,7 +304,7 @@ export default function ShootsPage() {
                   onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                   rows={2}
                   placeholder="Models to feature, location, vans, special requirements…"
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#14C29F]/40 focus:border-[#14C29F] resize-none"
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand, #14C29F)]/40 focus:border-[var(--brand, #14C29F)] resize-none"
                 />
               </div>
 
@@ -316,7 +316,7 @@ export default function ShootsPage() {
                   onClick={handleSave}
                   disabled={saving || !canSubmit}
                   className="flex-1 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: '#14C29F' }}
+                  style={{ backgroundColor: 'var(--brand, #14C29F)' }}
                 >
                   {saving ? 'Saving…' : editing ? 'Save Changes' : 'Request Booking'}
                 </button>

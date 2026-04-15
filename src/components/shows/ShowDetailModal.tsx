@@ -84,7 +84,7 @@ export function ShowDetailModal({ show, taskCount, urgentCount, onClose, onEdit,
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {show.hubspot_audience.map(a => (
-                  <span key={a} className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-white" style={{ backgroundColor: '#14C29F' }}>
+                  <span key={a} className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-white" style={{ backgroundColor: 'var(--brand, #14C29F)' }}>
                     {a}
                   </span>
                 ))}
@@ -110,7 +110,7 @@ export function ShowDetailModal({ show, taskCount, urgentCount, onClose, onEdit,
           <button
             onClick={() => { onClose(); onViewTasks(show) }}
             className="text-sm font-medium transition-colors"
-            style={{ color: '#14C29F' }}
+            style={{ color: 'var(--brand, #14C29F)' }}
           >
             {taskCount} task{taskCount !== 1 ? 's' : ''}
             {urgentCount > 0 && <span className="ml-1 text-red-500">· {urgentCount} urgent</span>}

@@ -90,7 +90,7 @@ export function ShowForm({ initial, onSubmit, loading }: Props) {
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* AI Quick-Add */}
       <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-2">
-        <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: '#14C29F' }}>
+        <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: 'var(--brand, #14C29F)' }}>
           <Sparkles className="h-4 w-4" />
           AI Quick-Add — paste a show URL to auto-fill details
         </p>
@@ -100,7 +100,7 @@ export function ShowForm({ initial, onSubmit, loading }: Props) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://www.caravanshow.com.au/..."
-            className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#14C29F]/30 focus:border-[#14C29F]"
+            className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand, #14C29F)]/30 focus:border-[var(--brand, #14C29F)]"
           />
           <Button type="button" size="sm" loading={scraping} onClick={handleScrape} disabled={!url}>
             Extract
@@ -141,7 +141,7 @@ export function ShowForm({ initial, onSubmit, loading }: Props) {
               className="rounded-full px-4 py-1.5 text-sm font-medium border transition-all"
               style={
                 form.brands.includes(brand)
-                  ? { backgroundColor: '#14C29F', color: '#fff', borderColor: '#14C29F' }
+                  ? { backgroundColor: 'var(--brand, #14C29F)', color: '#fff', borderColor: 'var(--brand, #14C29F)' }
                   : { backgroundColor: 'transparent', color: '#a1a1aa', borderColor: '#52525b' }
               }
             >
@@ -171,7 +171,7 @@ export function ShowForm({ initial, onSubmit, loading }: Props) {
                 className="rounded-full px-3 py-1 text-xs font-medium border transition-all"
                 style={
                   selected
-                    ? { backgroundColor: '#14C29F', color: '#fff', borderColor: '#14C29F' }
+                    ? { backgroundColor: 'var(--brand, #14C29F)', color: '#fff', borderColor: 'var(--brand, #14C29F)' }
                     : { backgroundColor: 'transparent', color: '#a1a1aa', borderColor: '#52525b' }
                 }
               >

@@ -31,7 +31,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
     }[variant]
 
     const primaryStyle = variant === 'primary'
-      ? { backgroundColor: '#14C29F', color: '#fff', ...style }
+      ? { backgroundColor: 'var(--brand, #14C29F)', color: '#fff', ...style }
       : style
 
     return (
