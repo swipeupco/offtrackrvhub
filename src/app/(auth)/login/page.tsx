@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 
 export default function LoginPage() {
   const [mode, setMode]           = useState<'signin' | 'signup'>('signin')
@@ -54,14 +53,12 @@ export default function LoginPage() {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="flex justify-center mb-8">
-        <Image
-          src="https://www.offtrackrv.com.au/content/images/off-track-rv-logo.svg"
-          alt="Off Track RV"
-          width={160}
-          height={48}
-          className="brightness-0 invert object-contain"
-          unoptimized
-        />
+        <div className="text-center">
+          <p className="text-2xl font-black tracking-tight text-white">
+            SwipeUp<span className="text-[#14C29F]">.</span>
+          </p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mt-0.5">Client Portal</p>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl">
@@ -106,7 +103,7 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              placeholder="you@offtrackrv.com.au"
+              placeholder="you@example.com"
               className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
             />
           </div>

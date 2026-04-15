@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketingCalendar } from '@/components/calendar/MarketingCalendar'
 import type { Show, MarketingTask, DeliverablesConfig } from '@/types'
-import Image from 'next/image'
 
 export default function SharedCalendarPage({ params }: { params: { token: string } }) {
   const [valid, setValid]   = useState<boolean | null>(null)
@@ -57,14 +56,9 @@ export default function SharedCalendarPage({ params }: { params: { token: string
     <div className="min-h-screen bg-zinc-50">
       {/* Minimal header */}
       <div className="bg-black px-6 py-3 flex items-center justify-between">
-        <Image
-          src="https://www.offtrackrv.com.au/content/images/off-track-rv-logo.svg"
-          alt="Off Track RV"
-          width={120}
-          height={36}
-          className="brightness-0 invert object-contain"
-          unoptimized
-        />
+        <span className="text-lg font-black tracking-tight text-white">
+          SwipeUp<span className="text-[#14C29F]">.</span>
+        </span>
         <span className="text-xs text-zinc-500">Marketing Calendar · View Only</span>
       </div>
       <div className="p-6">
