@@ -1,8 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+interface ClientBranding {
+  name: string
+  color: string
+  logo_url: string | null
+}
 
 export default function LoginPage() {
   const [mode, setMode]           = useState<'signin' | 'signup'>('signin')
@@ -11,7 +17,24 @@ export default function LoginPage() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const [success, setSuccess]     = useState<string | null>(null)
+  const [branding, setBranding]   = useState<ClientBranding | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Load client branding from ?client=slug param
+  useEffect(() => {
+    const slug = searchParams.get('client')
+    if (!slug) return
+    const supabase = createClient()
+    supabase
+      .from('clients')
+      .select('name, color, logo_url')
+      .eq('slug', slug)
+      .single()
+      .then(({ data }) => { if (data) setBranding(data) })
+  }, [searchParams])
+
+  const accentColor = branding?.color ?? '#14C29F'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -51,14 +74,22 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      {/* Logo */}
+      {/* Logo / branding */}
       <div className="flex justify-center mb-8">
-        <div className="text-center">
-          <p className="text-2xl font-black tracking-tight text-white">
-            SwipeUp<span className="text-[#14C29F]">.</span>
-          </p>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mt-0.5">Client Portal</p>
-        </div>
+        {branding?.logo_url ? (
+          <img
+            src={branding.logo_url}
+            alt={branding.name}
+            className="max-h-12 max-w-[180px] object-contain brightness-0 invert"
+          />
+        ) : (
+          <div className="text-center">
+            <p className="text-2xl font-black tracking-tight text-white">
+              SwipeUp<span style={{ color: accentColor }}>.</span>
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mt-0.5">Client Portal</p>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl">
@@ -92,7 +123,9 @@ export default function LoginPage() {
           {mode === 'signin' ? 'Welcome back' : 'Get started'}
         </h1>
         <p className="text-sm text-zinc-400 mb-6">
-          {mode === 'signin' ? 'Sign in to your Command Centre' : 'Create your Command Centre account'}
+          {mode === 'signin'
+            ? `Sign in to ${branding?.name ? branding.name + ' portal' : 'your portal'}`
+            : 'Create your portal account'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -104,7 +137,8 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
             />
           </div>
 
@@ -117,7 +151,8 @@ export default function LoginPage() {
               required
               placeholder="••••••••"
               minLength={mode === 'signup' ? 6 : undefined}
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
             />
             {mode === 'signup' && (
               <p className="text-xs text-zinc-500 mt-0.5">Minimum 6 characters</p>
@@ -135,7 +170,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: '#14C29F' }}
+            style={{ backgroundColor: accentColor }}
           >
             {loading
               ? (mode === 'signin' ? 'Signing in…' : 'Creating account…')
@@ -146,7 +181,7 @@ export default function LoginPage() {
       </div>
 
       <p className="text-center text-xs text-zinc-600 mt-6">
-        Built by SwipeUp · Internal use only
+        Built by SwipeUp
       </p>
     </div>
   )
