@@ -751,6 +751,14 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // ── Animated dots for "working on it" ──
+  const [dots, setDots] = useState('.')
+  useEffect(() => {
+    if (!isReview) return
+    const id = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 500)
+    return () => clearInterval(id)
+  }, [isReview])
+
   // ── Editable brief fields ──
   const [localName, setLocalName]           = useState(brief.name)
   const [localDesc, setLocalDesc]           = useState(brief.description ?? '')
@@ -1002,20 +1010,19 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     View Draft
                   </a>
                 ) : (
-                  <div className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-gray-50 border border-dashed w-full"
-                    style={isReview ? { borderColor: `${clientColor}60`, color: clientColor } : { borderColor: '#e5e7eb', color: '#9ca3af' }}>
+                  <div
+                    className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-gray-50 border border-dashed w-full"
+                    style={isReview
+                      ? { borderColor: `${clientColor}60`, color: clientColor }
+                      : { borderColor: '#e5e7eb', color: '#9ca3af' }}
+                  >
                     {isReview ? (
                       <>
                         <span className="relative flex h-2 w-2 flex-shrink-0">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: clientColor }} />
                           <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: clientColor }} />
                         </span>
-                        We&apos;re working on it
-                        <span className="inline-flex gap-0.5">
-                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
-                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
-                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
-                        </span>
+                        <span>We&apos;re working on it right now<span style={{ letterSpacing: '0.05em' }}>{dots}</span></span>
                       </>
                     ) : (
                       <>
