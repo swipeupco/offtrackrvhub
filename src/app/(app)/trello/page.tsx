@@ -7,9 +7,9 @@ import {
   CheckCircle2, Play, Plus, X, Send, ExternalLink,
   MessageSquare, RotateCcw, Loader2, ChevronDown, Clock,
   Video, Image, Mail, LayoutGrid, Mic, FileText, CircleDot,
-  GripVertical, Upload,
+  GripVertical, Upload, Trash2, AtSign,
 } from 'lucide-react'
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -35,8 +35,14 @@ interface Comment {
   content: string
   user_name: string | null
   user_email: string | null
+  user_id: string | null
   is_internal: boolean
   created_at: string
+}
+
+interface MentionUser {
+  id: string
+  name: string
 }
 
 const CONTENT_TYPES = [
@@ -73,6 +79,20 @@ export default function CreativePipeline() {
       router.replace('/trello')
     }
   }, [searchParams, router])
+
+  // Deep-link: open a specific brief from a notification link (?briefId=...)
+  const [pendingBriefId, setPendingBriefId] = useState<string | null>(null)
+  useEffect(() => {
+    const bid = searchParams.get('briefId')
+    if (bid) { setPendingBriefId(bid); router.replace('/trello') }
+  }, [searchParams, router])
+
+  useEffect(() => {
+    if (pendingBriefId && briefs.length > 0) {
+      const found = briefs.find(b => b.id === pendingBriefId)
+      if (found) { setSelectedBrief(found); setPendingBriefId(null) }
+    }
+  }, [briefs, pendingBriefId])
 
   async function load(cid: string, silent = false) {
     if (!silent) setLoading(true)
@@ -398,7 +418,7 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
   brief: Brief
   clientColor: string
   reviewMode?: boolean
-  dragHandleProps?: Record<string, unknown> | null
+  dragHandleProps?: DraggableProvidedDragHandleProps | null
   isDragging?: boolean
   onOpen: () => void
   onApprove: () => void
@@ -432,7 +452,7 @@ function BriefCard({ brief, clientColor, reviewMode, dragHandleProps, isDragging
       {dragHandleProps && (
         <div className="flex items-center justify-end mb-1.5" onClick={e => e.stopPropagation()}>
           <div
-            {...(dragHandleProps as Record<string, unknown>)}
+            {...dragHandleProps}
             className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-gray-200 hover:text-gray-400 transition-colors"
           >
             <GripVertical className="h-4 w-4" />
@@ -604,10 +624,36 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onApprove: () => void
   onRequestRevisions: () => void
 }) {
-  const [comments, setComments]     = useState<Comment[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [sending, setSending]       = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
+  const [comments, setComments]         = useState<Comment[]>([])
+  const [newComment, setNewComment]     = useState('')
+  const [sending, setSending]           = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
+  const [mentionOpen, setMentionOpen]   = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [mentionStart, setMentionStart] = useState(0)
+  const endRef   = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Load current user + mentionable users
+  useEffect(() => {
+    async function loadUsers() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setCurrentUserId(user.id)
+      // Fetch all profiles with same client + all staff/admin
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .or(`client_id.eq.${brief.client_id},is_staff.eq.true,is_admin.eq.true`)
+      setMentionUsers(
+        (data ?? [])
+          .filter((p: any) => p.name && p.id !== user?.id)
+          .map((p: any) => ({ id: p.id, name: p.name }))
+      )
+    }
+    loadUsers()
+  }, [brief.client_id])
 
   async function loadComments() {
     const supabase = createClient()
@@ -626,44 +672,114 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     const channel = supabase
       .channel(`client-comments-${brief.id}`)
       .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'brief_comments',
+        event: '*', schema: 'public', table: 'brief_comments',
         filter: `brief_id=eq.${brief.id}`,
       }, () => loadComments())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brief.id])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [comments])
 
+  function handleCommentChange(value: string) {
+    setNewComment(value)
+    // Detect @mention trigger
+    const cursorPos = inputRef.current?.selectionStart ?? value.length
+    const textBefore = value.slice(0, cursorPos)
+    const atMatch = textBefore.match(/@(\w*)$/)
+    if (atMatch) {
+      setMentionQuery(atMatch[1])
+      setMentionStart(cursorPos - atMatch[0].length)
+      setMentionOpen(true)
+    } else {
+      setMentionOpen(false)
+    }
+  }
+
+  function insertMention(user: MentionUser) {
+    const before = newComment.slice(0, mentionStart)
+    const after  = newComment.slice(mentionStart + mentionQuery.length + 1)
+    const mention = `@${user.name} `
+    setNewComment(before + mention + after)
+    setMentionOpen(false)
+    setTimeout(() => inputRef.current?.focus(), 10)
+  }
+
+  async function handleDeleteComment(id: string) {
+    const supabase = createClient()
+    await supabase.from('brief_comments').delete().eq('id', id)
+  }
+
   async function sendComment(e: React.FormEvent) {
     e.preventDefault()
-    if (!newComment.trim()) return
+    if (!newComment.trim() || sending) return
     setSending(true)
+    setMentionOpen(false)
+    const text = newComment.trim()
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase.from('profiles').select('name').eq('id', user!.id).single()
+    const { data: profile }  = await supabase.from('profiles').select('name').eq('id', user!.id).single()
+    const authorName = profile?.name ?? user?.email?.split('@')[0] ?? 'Someone'
+
     await supabase.from('brief_comments').insert({
       brief_id:    brief.id,
-      content:     newComment.trim(),
+      content:     text,
       user_id:     user?.id,
       user_email:  user?.email,
-      user_name:   profile?.name ?? user?.email?.split('@')[0] ?? 'Client',
+      user_name:   authorName,
       is_internal: false,
     })
+
+    // Fire a notification so staff + tagged users see it
+    const notifLink = `/trello?briefId=${brief.id}`
+    const snippet   = text.length > 80 ? text.slice(0, 80) + '…' : text
+    await supabase.from('notifications').insert({
+      message:   `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
+      type:      'comment',
+      link:      notifLink,
+      resolved:  false,
+      client_id: brief.client_id,
+      brief_id:  brief.id,
+    })
+
     setNewComment('')
     setSending(false)
   }
+
+  const filteredMentions = mentionUsers.filter(u =>
+    u.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  )
 
   const typeInfo   = CONTENT_TYPES.find(t => t.id === brief.content_type)
   const hasDraft   = !!brief.draft_url
   const isReview   = ['in_production', 'client_review', 'qa_review'].includes(brief.pipeline_status)
   const isApproved = brief.pipeline_status === 'approved'
 
+  function getInitials(name: string | null) {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase()
+  }
+
+  function renderCommentContent(content: string) {
+    // Highlight @mentions in blue
+    const parts = content.split(/(@\w+)/g)
+    return parts.map((part, i) =>
+      part.startsWith('@')
+        ? <span key={i} className="font-semibold text-blue-500">{part}</span>
+        : <span key={i}>{part}</span>
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full">
 
+        {/* ── Header ── */}
         <div className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex-1 min-w-0">
@@ -731,6 +847,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           )}
         </div>
 
+        {/* ── Brief Details ── */}
         {brief.description && (
           <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Brief Details</p>
@@ -740,49 +857,112 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           </div>
         )}
 
+        {/* ── Comments ── */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="px-6 py-3 border-b border-gray-100 flex-shrink-0">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
               Comments {comments.length > 0 && `(${comments.length})`}
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
-            {comments.map(c => (
-              <div key={c.id} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold text-gray-700">{c.user_name || 'Team'}</span>
-                  <span className="text-[10px] text-gray-400">{format(new Date(c.created_at), 'd MMM · h:mm a')}</span>
-                </div>
-                <p className="text-xs text-gray-600 leading-relaxed">{c.content}</p>
-              </div>
-            ))}
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {comments.length === 0 && (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <MessageSquare className="h-6 w-6 text-gray-200 mb-2" />
                 <p className="text-xs text-gray-400">No comments yet</p>
-                <p className="text-[11px] text-gray-300 mt-0.5">Leave feedback or questions below</p>
+                <p className="text-[11px] text-gray-300 mt-0.5">Leave feedback or ask a question below</p>
               </div>
             )}
+            {comments.map(c => {
+              const isOwn = c.user_id === currentUserId
+              return (
+                <div key={c.id} className="flex gap-3 group/comment">
+                  {/* Avatar */}
+                  <div
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: clientColor }}
+                  >
+                    {getInitials(c.user_name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {/* Name + time row */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[12px] font-semibold text-gray-800">{c.user_name || 'Team'}</span>
+                      <span className="text-[10px] text-gray-400">{format(new Date(c.created_at), 'd MMM · h:mm a')}</span>
+                      {isOwn && (
+                        <button
+                          onClick={() => handleDeleteComment(c.id)}
+                          className="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity text-gray-300 hover:text-red-400"
+                          title="Delete comment"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    {/* Bubble */}
+                    <div className="rounded-2xl rounded-tl-sm bg-gray-50 border border-gray-100 px-3 py-2">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {renderCommentContent(c.content)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
             <div ref={endRef} />
           </div>
-          <div className="border-t border-gray-100 p-4 flex-shrink-0">
-            <form onSubmit={sendComment} className="flex gap-2">
-              <input
-                type="text"
-                value={newComment}
-                onChange={e => setNewComment(e.target.value)}
-                placeholder="Leave feedback or ask a question…"
-                className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-              />
+
+          {/* ── Input ── */}
+          <div className="border-t border-gray-100 p-4 flex-shrink-0 relative">
+            {/* @Mention dropdown */}
+            {mentionOpen && filteredMentions.length > 0 && (
+              <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 max-h-36 overflow-y-auto">
+                {filteredMentions.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); insertMention(u) }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div
+                      className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: clientColor }}
+                    >
+                      {getInitials(u.name)}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{u.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <form onSubmit={sendComment} className="flex gap-2 items-end">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  rows={2}
+                  value={newComment}
+                  onChange={e => handleCommentChange(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(e as any) }
+                    if (e.key === 'Escape') setMentionOpen(false)
+                  }}
+                  placeholder="Leave feedback or ask a question… (type @ to mention)"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
+                  style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
+                />
+              </div>
               <button
                 type="submit"
                 disabled={sending || !newComment.trim()}
-                className="rounded-xl px-3 py-2 text-white disabled:opacity-40 shadow-sm transition-opacity hover:opacity-90"
+                className="rounded-xl px-3 py-2.5 text-white disabled:opacity-40 shadow-sm transition-opacity hover:opacity-90 flex-shrink-0"
                 style={{ backgroundColor: clientColor }}
               >
-                <Send className="h-4 w-4" />
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </form>
+            <p className="text-[10px] text-gray-400 mt-1.5 pl-1">
+              <AtSign className="inline h-2.5 w-2.5" /> to mention · Enter to send · Shift+Enter for new line
+            </p>
           </div>
         </div>
       </div>

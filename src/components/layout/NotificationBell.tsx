@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Bell, Check, X } from 'lucide-react'
 import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
 
 interface Notification {
   id: string
@@ -18,6 +19,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const router   = useRouter()
 
   const unresolved = notifications.filter(n => !n.resolved).length
 
@@ -105,9 +107,15 @@ export function NotificationBell() {
               notifications.map(n => (
                 <div
                   key={n.id}
+                  onClick={() => {
+                    if (n.link) {
+                      markResolved(n.id); setOpen(false)
+                      n.link.startsWith('/') ? router.push(n.link) : window.open(n.link, '_blank')
+                    }
+                  }}
                   className={`flex items-start gap-3 px-4 py-3 border-b border-zinc-50 transition-colors ${
                     n.resolved ? 'opacity-50' : 'bg-white hover:bg-zinc-50'
-                  }`}
+                  } ${n.link ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-zinc-700 leading-relaxed">{n.message}</p>
@@ -115,15 +123,21 @@ export function NotificationBell() {
                       {format(new Date(n.created_at), 'd MMM · h:mm a')}
                     </p>
                     {n.link && (
-                      <a
-                        href={n.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] font-semibold mt-1 inline-block hover:underline"
-                        style={{ color: '#14C29F' }}
+                      <button
+                        onClick={() => {
+                          markResolved(n.id)
+                          setOpen(false)
+                          if (n.link!.startsWith('/')) {
+                            router.push(n.link!)
+                          } else {
+                            window.open(n.link!, '_blank')
+                          }
+                        }}
+                        className="text-[10px] font-semibold mt-1 inline-block hover:underline text-left"
+                        style={{ color: 'var(--brand, #14C29F)' }}
                       >
-                        View →
-                      </a>
+                        View brief →
+                      </button>
                     )}
                   </div>
                   {!n.resolved && (
