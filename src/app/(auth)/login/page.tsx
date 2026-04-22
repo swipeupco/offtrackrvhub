@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
@@ -14,6 +14,24 @@ function LoginContent() {
   const [error, setError]       = useState<string | null>(null)
   const [mode, setMode]         = useState<Mode>('login')
   const [clientName, setClientName] = useState<string | null>(null)
+  
+  // LIVE CLOCK LOGIC
+  const [formattedDate, setFormattedDate] = useState<string | null>(null)
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date(); 
+      setFormattedDate(new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'full',
+        timeStyle: 'short',
+      }).format(now));
+    };
+
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -74,6 +92,18 @@ function LoginContent() {
     </div>
   )
 
+  // UPDATED FOOTER: Time on top, Built by SwipeUp on bottom
+  const FooterClock = () => (
+    <div className="flex flex-col items-center gap-1 mt-8">
+       <p className="text-zinc-500 text-[10px] uppercase tracking-wider">
+         {formattedDate || ""}
+       </p>
+       <p className="text-zinc-600 text-xs font-medium">
+         Built by SwipeUp
+       </p>
+    </div>
+  )
+
   if (mode === 'sent') {
     return (
       <div className="w-full max-w-sm">
@@ -90,7 +120,7 @@ function LoginContent() {
             ← Back to sign in
           </button>
         </div>
-        <p className="text-center text-xs text-zinc-500 mt-6">Built by SwipeUp</p>
+        <FooterClock />
       </div>
     )
   }
@@ -113,7 +143,7 @@ function LoginContent() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   placeholder="you@example.com"
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#4950F8] focus:outline-none focus:ring-2 focus:ring-[#4950F8]/20"
                 />
               </div>
               {error && (
@@ -122,7 +152,7 @@ function LoginContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-[#14C29F] transition-opacity disabled:opacity-60"
+                className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-[#4950F8] transition-opacity disabled:opacity-60"
               >
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
@@ -139,7 +169,7 @@ function LoginContent() {
           <>
             <h1 className="text-xl font-bold text-white mb-1">Welcome back</h1>
             <p className="text-sm text-zinc-400 mb-6">
-              {clientName ? `Sign in to ${clientName} portal` : 'Sign in to your portal'}
+              {clientName ? `Sign in to ${clientName} portal` : 'Sign in to your marketing portal'}
             </p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col gap-1">
@@ -150,7 +180,7 @@ function LoginContent() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   placeholder="you@example.com"
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#4950F8] focus:outline-none focus:ring-2 focus:ring-[#4950F8]/20"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -170,7 +200,7 @@ function LoginContent() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#4950F8] focus:outline-none focus:ring-2 focus:ring-[#4950F8]/20"
                 />
               </div>
               {error && (
@@ -179,16 +209,41 @@ function LoginContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-[#14C29F] transition-opacity disabled:opacity-60"
+                className="group relative w-full overflow-hidden rounded-lg px-4 py-3 text-sm font-semibold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(73, 80, 248, 0.95) 0%, rgba(73, 80, 248, 0.75) 50%, rgba(55, 62, 220, 0.9) 100%)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  boxShadow: `
+                    0 10px 30px rgba(73, 80, 248, 0.5),
+                    0 4px 12px rgba(73, 80, 248, 0.4),
+                    0 0 40px rgba(73, 80, 248, 0.25),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+                  `,
+                }}
               >
-                {loading ? 'Signing in…' : 'Sign in'}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(73, 80, 248, 1) 0%, rgba(95, 102, 255, 0.95) 50%, rgba(73, 80, 248, 1) 100%)',
+                    boxShadow: `
+                      0 15px 40px rgba(73, 80, 248, 0.7),
+                      0 6px 20px rgba(73, 80, 248, 0.5),
+                      0 0 60px rgba(73, 80, 248, 0.4),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.4)
+                    `,
+                  }}
+                />
+                <span className="relative z-10 drop-shadow-sm pointer-events-none">{loading ? 'Signing in…' : 'Sign in'}</span>
               </button>
             </form>
           </>
         )}
       </div>
 
-      <p className="text-center text-xs text-zinc-500 mt-6">Built by SwipeUp</p>
+      <FooterClock />
     </div>
   )
 }
