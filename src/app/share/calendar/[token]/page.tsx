@@ -13,21 +13,37 @@ export default function SharedCalendarPage({ params }: { params: { token: string
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Verify token
     fetch(`/api/shared-link?token=${params.token}`)
       .then(r => r.json())
       .then(async data => {
-        if (!data.valid) { setValid(false); setLoading(false); return }
+        if (!data.valid || !data.client_id) {
+          setValid(false)
+          setLoading(false)
+          return
+        }
         setValid(true)
+        const clientId = data.client_id as string
         const supabase = createClient()
-        const [showsRes, tasksRes, configsRes] = await Promise.all([
-          supabase.from('shows').select('*').order('start_date', { ascending: true }),
-          supabase.from('marketing_tasks').select('*'),
-          supabase.from('deliverables_config').select('*'),
+        const [showsRes, configsRes] = await Promise.all([
+          supabase.from('shows').select('*').eq('client_id', clientId).order('start_date', { ascending: true }),
+          supabase.from('deliverables_config').select('*').eq('client_id', clientId),
         ])
-        setShows((showsRes.data as Show[]) ?? [])
-        setTasks((tasksRes.data as MarketingTask[]) ?? [])
+        const fetchedShows = (showsRes.data as Show[]) ?? []
+        setShows(fetchedShows)
         setConfigs((configsRes.data as DeliverablesConfig[]) ?? [])
+
+        // marketing_tasks scope by show_id, so constrain to this client's shows
+        if (fetchedShows.length > 0) {
+          const showIds = fetchedShows.map(s => s.id)
+          const { data: taskData } = await supabase
+            .from('marketing_tasks')
+            .select('*')
+            .in('show_id', showIds)
+          setTasks((taskData as MarketingTask[]) ?? [])
+        } else {
+          setTasks([])
+        }
+
         setLoading(false)
       })
       .catch(() => { setValid(false); setLoading(false) })

@@ -11,18 +11,22 @@ async function makeSupabase() {
   )
 }
 
-// GET /api/shared-link?token=xxx — verify token exists
+// GET /api/shared-link?token=xxx — verify token exists; return type + client scope
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
   if (!token) return NextResponse.json({ error: 'No token' }, { status: 400 })
   const supabase = await makeSupabase()
-  const { data } = await supabase.from('shared_links').select('id, type').eq('token', token).single()
+  const { data } = await supabase
+    .from('shared_links')
+    .select('id, type, client_id')
+    .eq('token', token)
+    .single()
   if (!data) return NextResponse.json({ error: 'Invalid token' }, { status: 404 })
-  return NextResponse.json({ valid: true, type: data.type })
+  return NextResponse.json({ valid: true, type: data.type, client_id: data.client_id })
 }
 
-// POST /api/shared-link — create a new share link
+// POST /api/shared-link — create a new share link scoped to the creator's client
 export async function POST(request: Request) {
   const supabase = await makeSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,7 +34,17 @@ export async function POST(request: Request) {
 
   const { type = 'calendar' } = await request.json().catch(() => ({}))
 
-  // Check if user already has a link of this type
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('client_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.client_id) {
+    return NextResponse.json({ error: 'No client associated with user' }, { status: 400 })
+  }
+
+  // Reuse existing link for this (user, type)
   const { data: existing } = await supabase
     .from('shared_links')
     .select('token')
@@ -42,7 +56,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('shared_links')
-    .insert({ type, created_by: user.id })
+    .insert({ type, created_by: user.id, client_id: profile.client_id })
     .select('token')
     .single()
 
