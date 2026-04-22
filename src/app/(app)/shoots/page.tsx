@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import type { VideoShoot } from '@/types'
+import { useActiveClient } from '@/lib/active-client-context'
 
 // ── Metadata stored as JSON in the notes field ────────────────────────────────
 interface ShootMeta {
@@ -63,15 +64,21 @@ export default function ShootsPage() {
   const [saving, setSaving]           = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<VideoShoot | null>(null)
   const saveInFlight = useRef(false)
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   async function fetchShoots() {
+    if (!clientId) return
     const supabase = createClient()
-    const { data } = await supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true })
+    const { data } = await supabase.from('video_shoots').select('*').eq('client_id', clientId).order('shoot_date', { ascending: true })
     setShoots((data as VideoShoot[]) ?? [])
     setLoading(false)
   }
 
-  useEffect(() => { fetchShoots() }, [])
+  useEffect(() => {
+    if (clientLoading) return
+    fetchShoots()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, clientLoading])
 
   function openCreate() {
     setEditing(null)
@@ -102,7 +109,7 @@ export default function ShootsPage() {
   }
 
   async function handleSave() {
-    if (saveInFlight.current || !form.date1 || form.types.length === 0 || !form.duration) return
+    if (saveInFlight.current || !form.date1 || form.types.length === 0 || !form.duration || !clientId) return
     saveInFlight.current = true
     setSaving(true)
 
@@ -121,7 +128,7 @@ export default function ShootsPage() {
     if (editing) {
       await supabase.from('video_shoots').update(payload).eq('id', editing.id)
     } else {
-      await supabase.from('video_shoots').insert(payload)
+      await supabase.from('video_shoots').insert({ ...payload, client_id: clientId })
     }
 
     await fetchShoots()

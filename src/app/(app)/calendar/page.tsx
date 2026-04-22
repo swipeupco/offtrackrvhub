@@ -11,6 +11,7 @@ import { TaskDrawer } from '@/components/shows/TaskDrawer'
 import { Modal } from '@/components/ui/Modal'
 import type { Show, MarketingTask, ShowFormData } from '@/types'
 import { Link2, Check, Copy } from 'lucide-react'
+import { useActiveClient } from '@/lib/active-client-context'
 
 export default function CalendarPage() {
   const [shows, setShows]         = useState<Show[]>([])
@@ -23,19 +24,29 @@ export default function CalendarPage() {
   const [sharingLoading, setSharingLoading] = useState(false)
   const [copied, setCopied]       = useState(false)
   const saveInFlight = useRef(false)
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   async function fetchData() {
+    if (!clientId) return
     const supabase = createClient()
-    const [showsRes, tasksRes] = await Promise.all([
-      supabase.from('shows').select('*'),
-      supabase.from('marketing_tasks').select('*'),
-    ])
-    setShows((showsRes.data as Show[]) ?? [])
-    setTasks((tasksRes.data as MarketingTask[]) ?? [])
+    const { data: showsData } = await supabase
+      .from('shows')
+      .select('*')
+      .eq('client_id', clientId)
+    const showIds = (showsData ?? []).map((s: Show) => s.id)
+    const { data: tasksData } = showIds.length > 0
+      ? await supabase.from('marketing_tasks').select('*').in('show_id', showIds)
+      : { data: [] }
+    setShows((showsData as Show[]) ?? [])
+    setTasks((tasksData as MarketingTask[]) ?? [])
     setLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    if (clientLoading) return
+    fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, clientLoading])
 
   async function handleSave(data: ShowFormData) {
     if (saveInFlight.current || !editingShow) return

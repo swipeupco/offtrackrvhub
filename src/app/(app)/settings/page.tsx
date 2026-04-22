@@ -17,7 +17,7 @@ const emptyDel: DeliverableFormData = { name: '', days_before_show: 14 }
 type Toast = { type: 'success' | 'error'; message: string }
 
 export default function SettingsPage() {
-  const { clientConfig } = useActiveClient()
+  const { clientId, clientConfig } = useActiveClient()
   const clientColor = clientConfig.color
 
   // Profile
@@ -57,8 +57,7 @@ export default function SettingsPage() {
     Promise.all([
       supabase.auth.getUser(),
       supabase.from('profiles').select('*, clients(has_vans)').single(),
-      supabase.from('deliverables_config').select('*').order('days_before_show', { ascending: false }),
-    ]).then(([{ data: { user } }, profileRes, configsRes]) => {
+    ]).then(([{ data: { user } }, profileRes]) => {
       if (user) setCurrentEmail(user.email ?? '')
       if (profileRes.data) {
         setName(profileRes.data.name ?? '')
@@ -67,10 +66,14 @@ export default function SettingsPage() {
         const clientData = profileRes.data.clients as { has_vans: boolean } | null
         setHasVans(clientData?.has_vans ?? false)
       }
-      setConfigs((configsRes.data as DeliverablesConfig[]) ?? [])
-      setConfigsLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    if (!clientId) return
+    fetchConfigs()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
 
   function handleAvatarClick() { fileInputRef.current?.click() }
 
@@ -121,20 +124,26 @@ export default function SettingsPage() {
   }
 
   async function fetchConfigs() {
+    if (!clientId) return
     const supabase = createClient()
-    const { data } = await supabase.from('deliverables_config').select('*').order('days_before_show', { ascending: false })
+    const { data } = await supabase
+      .from('deliverables_config')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('days_before_show', { ascending: false })
     setConfigs((data as DeliverablesConfig[]) ?? [])
+    setConfigsLoading(false)
   }
 
   async function handleDelSave() {
-    if (saveInFlight.current || !form.name.trim()) return
+    if (saveInFlight.current || !form.name.trim() || !clientId) return
     saveInFlight.current = true
     setDelSaving(true)
     const supabase = createClient()
     if (editing) {
       await supabase.from('deliverables_config').update({ name: form.name, days_before_show: form.days_before_show }).eq('id', editing.id)
     } else {
-      await supabase.from('deliverables_config').insert(form)
+      await supabase.from('deliverables_config').insert({ ...form, client_id: clientId })
     }
     await fetchConfigs()
     setDelSaving(false)

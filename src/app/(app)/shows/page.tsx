@@ -16,6 +16,7 @@ import { isShowComplete, daysUntilStart, parseLocalDate, getFaviconUrl } from '@
 import { format } from 'date-fns'
 import { Plus, Search, LayoutGrid, List, Columns, Eye, EyeOff, MapPin, Calendar, AlertTriangle, Users, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import type { Show, MarketingTask, ShowFormData } from '@/types'
+import { useActiveClient } from '@/lib/active-client-context'
 
 type ViewMode = 'card' | 'list' | 'kanban'
 
@@ -39,22 +40,32 @@ export default function ShowsPage() {
   const [detailShow, setDetailShow]     = useState<Show | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Show | null>(null)
   const saveInFlight = useRef(false)
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   const fetchData = useCallback(async () => {
+    if (!clientId) return
     const supabase = createClient()
-    const [showsRes, tasksRes] = await Promise.all([
-      supabase.from('shows').select('*').order('start_date', { ascending: true }),
-      supabase.from('marketing_tasks').select('*'),
-    ])
-    setShows((showsRes.data as Show[]) ?? [])
-    setTasks((tasksRes.data as MarketingTask[]) ?? [])
+    const { data: showsData } = await supabase
+      .from('shows')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('start_date', { ascending: true })
+    const showIds = (showsData ?? []).map((s: Show) => s.id)
+    const { data: tasksData } = showIds.length > 0
+      ? await supabase.from('marketing_tasks').select('*').in('show_id', showIds)
+      : { data: [] }
+    setShows((showsData as Show[]) ?? [])
+    setTasks((tasksData as MarketingTask[]) ?? [])
     setLoading(false)
-  }, [])
+  }, [clientId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (clientLoading) return
+    fetchData()
+  }, [fetchData, clientLoading])
 
   async function handleSave(data: ShowFormData) {
-    if (saveInFlight.current) return
+    if (saveInFlight.current || !clientId) return
     saveInFlight.current = true
     setSaving(true)
     try {
@@ -65,7 +76,7 @@ export default function ShowsPage() {
         if (error || !updated) throw error
         savedShow = updated as Show
       } else {
-        const { data: created, error } = await supabase.from('shows').insert(data).select().single()
+        const { data: created, error } = await supabase.from('shows').insert({ ...data, client_id: clientId }).select().single()
         if (error || !created) throw error
         savedShow = created as Show
       }

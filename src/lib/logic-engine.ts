@@ -72,10 +72,11 @@ export async function syncTasksForShow(show: Show): Promise<void> {
   const today = new Date()
   const showStart = parseISO(show.start_date)
 
-  // 1. Fetch deliverables config
+  // 1. Fetch deliverables config for this client only
   const { data: configs, error } = await supabase
     .from('deliverables_config')
     .select('*')
+    .eq('client_id', show.client_id)
     .order('days_before_show', { ascending: false })
 
   if (error || !configs) return

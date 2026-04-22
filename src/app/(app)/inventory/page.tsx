@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { Van, VanFormData } from '@/types'
+import { useActiveClient } from '@/lib/active-client-context'
 
 const BRANDS = ['Vacationer', 'Radiant', 'Atlas', 'OzVenture'] as const
 
@@ -58,16 +59,22 @@ export default function InventoryPage() {
   const [deleteTarget, setDeleteTarget] = useState<Van | null>(null)
   const saveInFlight = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   async function fetchVans() {
+    if (!clientId) return
     const supabase = createClient()
-    const { data, error } = await supabase.from('vans').select('*').order('brand').order('model_name')
+    const { data, error } = await supabase.from('vans').select('*').eq('client_id', clientId).order('brand').order('model_name')
     if (error) console.error('fetchVans error:', error)
     setVans((data as Van[]) ?? [])
     setLoading(false)
   }
 
-  useEffect(() => { fetchVans() }, [])
+  useEffect(() => {
+    if (clientLoading) return
+    fetchVans()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, clientLoading])
 
   function openCreate() {
     setEditing(null)
@@ -133,7 +140,7 @@ export default function InventoryPage() {
   }
 
   async function handleSave() {
-    if (saveInFlight.current || !form.model_name || !form.brand) return
+    if (saveInFlight.current || !form.model_name || !form.brand || !clientId) return
     saveInFlight.current = true
     setSaving(true)
     setSaveError(null)
@@ -149,7 +156,7 @@ export default function InventoryPage() {
     }
     const { error } = editing
       ? await supabase.from('vans').update(payload).eq('id', editing.id)
-      : await supabase.from('vans').insert(payload)
+      : await supabase.from('vans').insert({ ...payload, client_id: clientId })
 
     if (error) {
       setSaveError(error.message)

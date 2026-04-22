@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format, parseISO, getMonth, eachMonthOfInterval, startOfYear, endOfYear, isWithinInterval, isSameMonth } from 'date-fns'
 import { Tent, Video, CheckCircle2, Clock, AlertTriangle } from 'lucide-react'
 import type { Show, MarketingTask, VideoShoot } from '@/types'
+import { useActiveClient } from '@/lib/active-client-context'
 
 const MONTHS = eachMonthOfInterval({ start: startOfYear(new Date()), end: endOfYear(new Date()) })
 
@@ -23,20 +24,27 @@ export default function OverviewPage() {
   const [shoots, setShoots] = useState<VideoShoot[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear]       = useState(new Date().getFullYear())
+  const { clientId, loading: clientLoading } = useActiveClient()
 
   useEffect(() => {
+    if (clientLoading || !clientId) return
     const supabase = createClient()
-    Promise.all([
-      supabase.from('shows').select('*'),
-      supabase.from('marketing_tasks').select('*'),
-      supabase.from('video_shoots').select('*'),
-    ]).then(([s, t, sh]) => {
-      setShows((s.data as Show[]) ?? [])
-      setTasks((t.data as MarketingTask[]) ?? [])
-      setShoots((sh.data as VideoShoot[]) ?? [])
+    const fetchAll = async () => {
+      const { data: showsData } = await supabase.from('shows').select('*').eq('client_id', clientId)
+      const showIds = (showsData ?? []).map((s: Show) => s.id)
+      const [tasksRes, shootsRes] = await Promise.all([
+        showIds.length > 0
+          ? supabase.from('marketing_tasks').select('*').in('show_id', showIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from('video_shoots').select('*').eq('client_id', clientId),
+      ])
+      setShows((showsData as Show[]) ?? [])
+      setTasks((tasksRes.data as MarketingTask[]) ?? [])
+      setShoots((shootsRes.data as VideoShoot[]) ?? [])
       setLoading(false)
-    })
-  }, [])
+    }
+    fetchAll()
+  }, [clientId, clientLoading])
 
   const yearShows  = shows.filter(s => parseISO(s.start_date).getFullYear() === year || parseISO(s.end_date).getFullYear() === year)
   const yearShoots = shoots.filter(s => parseISO(s.shoot_date).getFullYear() === year)

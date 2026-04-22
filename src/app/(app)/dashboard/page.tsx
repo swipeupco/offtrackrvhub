@@ -51,8 +51,8 @@ export default function DashboardPage() {
 
       if (clientHasVans) {
         const [showsRes, shootsRes] = await Promise.all([
-          supabase.from('shows').select('*').order('start_date', { ascending: true }),
-          supabase.from('video_shoots').select('*').order('shoot_date', { ascending: true }),
+          supabase.from('shows').select('*').eq('client_id', clientId!).order('start_date', { ascending: true }),
+          supabase.from('video_shoots').select('*').eq('client_id', clientId!).order('shoot_date', { ascending: true }),
         ])
         setShows((showsRes.data as Show[]) ?? [])
         setShoots((shootsRes.data as VideoShoot[]) ?? [])

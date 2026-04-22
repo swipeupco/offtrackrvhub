@@ -6,6 +6,7 @@ export type TaskStatus = 'pending' | 'urgent' | 'in_progress' | 'done'
 
 export interface Show {
   id: string
+  client_id: string
   name: string
   start_date: string   // ISO date yyyy-MM-dd
   end_date: string
@@ -20,6 +21,7 @@ export interface Show {
 
 export interface DeliverablesConfig {
   id: string
+  client_id: string
   name: string
   days_before_show: number
   created_at: string
@@ -41,11 +43,12 @@ export interface MarketingTaskWithShow extends MarketingTask {
 }
 
 // Form types
-export type ShowFormData = Omit<Show, 'id' | 'created_at' | 'updated_at'>
-export type DeliverableFormData = Omit<DeliverablesConfig, 'id' | 'created_at'>
+export type ShowFormData = Omit<Show, 'id' | 'client_id' | 'created_at' | 'updated_at'>
+export type DeliverableFormData = Omit<DeliverablesConfig, 'id' | 'client_id' | 'created_at'>
 
 export interface VideoShoot {
   id: string
+  client_id: string
   title: string
   shoot_date: string
   notes: string | null
@@ -55,6 +58,7 @@ export interface VideoShoot {
 
 export interface Van {
   id: string
+  client_id: string
   model_name: string
   brand: string
   year: number | null
@@ -69,4 +73,4 @@ export interface Van {
   updated_at: string
 }
 
-export type VanFormData = Omit<Van, 'id' | 'created_at' | 'updated_at'>
+export type VanFormData = Omit<Van, 'id' | 'client_id' | 'created_at' | 'updated_at'>
