@@ -36,6 +36,15 @@ function LoginContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    const urlError = searchParams.get('error')
+    if (urlError === 'reset_expired') {
+      setError('Reset link expired or invalid. Please request a new one.')
+    } else if (urlError === 'auth') {
+      setError('Sign in failed. Please try again.')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
     const cookieSlug = document.cookie.match(/x-client-slug=([^;]+)/)?.[1] ?? null
     const slug = cookieSlug || searchParams.get('client')
     if (!slug) return
