@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Plus, Pencil, Trash2, Settings2, User, Lock, Camera, Check, AlertCircle } from 'lucide-react'
 import type { DeliverablesConfig, DeliverableFormData } from '@/types'
 import { BrandingPanel } from '@/components/settings/BrandingPanel'
+import { NotificationSettingsSection } from '@/components/settings/NotificationSettingsSection'
 import { useActiveClient } from '@/lib/active-client-context'
 
 const emptyDel: DeliverableFormData = { name: '', days_before_show: 14 }
@@ -293,6 +294,8 @@ export default function SettingsPage() {
 
       {/* ── Portal Branding ── */}
       <BrandingPanel />
+
+      <NotificationSettingsSection />
 
       {/* ── Deliverables Template — only for caravan/van clients ── */}
       {hasVans && <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
