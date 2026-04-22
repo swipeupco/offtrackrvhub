@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useActiveClient } from '@/lib/active-client-context'
+import TagUsersControl from '@/components/briefs/TagUsersControl'
 
 interface Brief {
   id: string
@@ -30,6 +31,9 @@ interface Brief {
   cover_url?: string | null
   sizes?: string[] | null
   ref_url?: string | null
+  created_by?: string | null
+  creator?: { id: string; name: string | null; avatar_url: string | null } | null
+  tagged_users?: { id: string; name: string | null; avatar_url: string | null }[]
 }
 
 interface Comment {
@@ -58,6 +62,75 @@ const CONTENT_TYPES = [
 ]
 
 const SIZES = ['1 x 1 Square', '4 x 5 Portrait', '9 x 16 Story/Reel', '16 x 9 Landscape']
+
+function initialsOf(name: string | null | undefined) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : parts[0].slice(0, 2).toUpperCase()
+}
+
+function UserAvatar({
+  user,
+  size = 24,
+  ring = false,
+  tint = '#4950F8',
+}: {
+  user: { name: string | null; avatar_url: string | null } | null | undefined
+  size?: number
+  ring?: boolean
+  tint?: string
+}) {
+  const title = user?.name ?? 'Unknown'
+  return (
+    <div
+      title={title}
+      className={`rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0 ${ring ? 'ring-2 ring-white' : ''}`}
+      style={{ width: size, height: size, fontSize: Math.max(9, size * 0.4), backgroundColor: tint }}
+    >
+      {user?.avatar_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={user.avatar_url} alt={title} className="h-full w-full object-cover" />
+      ) : (
+        initialsOf(user?.name)
+      )}
+    </div>
+  )
+}
+
+function StackedAvatars({
+  users,
+  max = 3,
+  size = 22,
+  tint = '#4950F8',
+}: {
+  users: { id: string; name: string | null; avatar_url: string | null }[]
+  max?: number
+  size?: number
+  tint?: string
+}) {
+  const visible = users.slice(0, max)
+  const extra   = users.length - visible.length
+  return (
+    <div className="flex items-center">
+      {visible.map((u, i) => (
+        <div key={u.id} className={i === 0 ? '' : '-ml-2'}>
+          <UserAvatar user={u} size={size} ring tint={tint} />
+        </div>
+      ))}
+      {extra > 0 && (
+        <div
+          className="-ml-2 rounded-full ring-2 ring-white bg-gray-100 text-[10px] font-bold text-gray-600 flex items-center justify-center"
+          style={{ width: size, height: size }}
+          title={`${extra} more`}
+        >
+          +{extra}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function CreativePipeline() {
   const [briefs, setBriefs]                   = useState<Brief[]>([])
@@ -111,7 +184,7 @@ export default function CreativePipeline() {
       .eq('client_id', cid)
       .order('sort_order', { ascending: true })
 
-    const all = briefData ?? []
+    const all = (briefData ?? []) as Brief[]
 
     // Enforce: only 1 brief in production at a time — move extras back to backlog
     const inProd = all.filter(b => ['in_production','client_review','qa_review'].includes(b.pipeline_status))
@@ -123,11 +196,48 @@ export default function CreativePipeline() {
       toBacklog.forEach(b => { b.pipeline_status = 'backlog'; b.internal_status = 'backlog' })
     }
 
-    setBriefs(all)
+    // Enrich with creator + tagged users
+    const briefIds   = all.map(b => b.id)
+    const creatorIds = [...new Set(all.map(b => b.created_by).filter(Boolean))] as string[]
+
+    const [tagsRes, creatorsRes] = await Promise.all([
+      briefIds.length
+        ? supabase.from('brief_assigned_users').select('brief_id, user_id').in('brief_id', briefIds)
+        : Promise.resolve({ data: [] as { brief_id: string; user_id: string }[] }),
+      creatorIds.length
+        ? supabase.from('profiles').select('id, name, avatar_url').in('id', creatorIds)
+        : Promise.resolve({ data: [] as { id: string; name: string | null; avatar_url: string | null }[] }),
+    ])
+
+    const tagRows    = (tagsRes.data ?? []) as { brief_id: string; user_id: string }[]
+    const taggedIds  = [...new Set(tagRows.map(r => r.user_id))]
+    const profileIds = [...new Set([...creatorIds, ...taggedIds])]
+
+    let profileMap: Record<string, { id: string; name: string | null; avatar_url: string | null }> = {}
+    if (profileIds.length) {
+      const seed = (creatorsRes.data ?? []) as { id: string; name: string | null; avatar_url: string | null }[]
+      seed.forEach(p => { profileMap[p.id] = p })
+      const missing = profileIds.filter(id => !profileMap[id])
+      if (missing.length) {
+        const { data: extra } = await supabase.from('profiles').select('id, name, avatar_url').in('id', missing)
+        ;(extra ?? []).forEach(p => { profileMap[p.id] = p })
+      }
+    }
+
+    const enriched = all.map(b => ({
+      ...b,
+      creator: b.created_by ? profileMap[b.created_by] ?? null : null,
+      tagged_users: tagRows
+        .filter(r => r.brief_id === b.id)
+        .map(r => profileMap[r.user_id])
+        .filter(Boolean),
+    }))
+
+    setBriefs(enriched)
     // Keep selectedBrief in sync so edits on the client portal appear on the hub in real-time
     setSelectedBrief(prev => {
       if (!prev) return null
-      const updated = all.find(b => b.id === prev.id)
+      const updated = enriched.find(b => b.id === prev.id)
       return updated ?? null  // null closes the modal if the brief was deleted
     })
     setLoading(false)
@@ -559,6 +669,7 @@ export default function CreativePipeline() {
             onCoverUpload={(file) => handleCoverUpload(selectedBrief.id, file)}
             onCoverDelete={() => handleCoverDelete(selectedBrief.id)}
             onDelete={() => handleDeleteBrief(selectedBrief.id)}
+            onReload={() => clientId && load(clientId, true)}
           />
         )}
 
@@ -655,17 +766,29 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
       } : {}}
       onClick={onOpen}
     >
-      {/* Drag handle row */}
-      {dragHandleProps && (
-        <div className="flex items-center justify-end mb-1.5" onClick={e => e.stopPropagation()}>
-          <div
-            {...dragHandleProps}
-            className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-gray-200 hover:text-gray-400 transition-colors"
-          >
-            <GripVertical className="h-4 w-4" />
-          </div>
+      {/* Attribution + drag handle row */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center" onClick={e => e.stopPropagation()}>
+          {brief.creator && (
+            <UserAvatar user={brief.creator} size={24} tint={clientColor} />
+          )}
+          {(brief.tagged_users?.length ?? 0) > 0 && (
+            <div className={brief.creator ? '-ml-2' : ''}>
+              <StackedAvatars users={brief.tagged_users ?? []} tint={clientColor} size={22} />
+            </div>
+          )}
         </div>
-      )}
+        {dragHandleProps && (
+          <div onClick={e => e.stopPropagation()}>
+            <div
+              {...dragHandleProps}
+              className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-gray-200 hover:text-gray-400 transition-colors"
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Thumbnail / Cover */}
       <div
@@ -803,6 +926,17 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
         )}
       </div>
 
+      {/* Open Brief button — explicit affordance; full card also opens on click */}
+      <button
+        type="button"
+        onClick={e => { e.stopPropagation(); onOpen() }}
+        className="mb-2 w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ backgroundColor: clientColor }}
+      >
+        <ExternalLink className="h-3 w-3" />
+        Open Brief
+      </button>
+
       {/* Action buttons */}
       <div className="flex gap-2" onClick={e => e.stopPropagation()}>
         {hasDraft ? (
@@ -886,7 +1020,7 @@ function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: 
 
 // ─── Brief Side Panel ────────────────────────────────────────────────────────
 
-function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete }: {
+function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete, onReload }: {
   brief: Brief
   clientColor: string
   onClose: () => void
@@ -895,6 +1029,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onCoverUpload?: (file: File) => void
   onCoverDelete?: () => void
   onDelete?: () => void
+  onReload?: () => void
 }) {
   const coverFileRef = useRef<HTMLInputElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -1204,6 +1339,18 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           {/* ── LEFT: Editable brief details ── */}
           <div className="w-[52%] flex-shrink-0 border-r border-gray-100 overflow-y-auto">
             <div className="p-6 space-y-6">
+
+              {/* People */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">People</p>
+                <TagUsersControl
+                  briefId={brief.id}
+                  clientId={brief.client_id}
+                  tagged={brief.tagged_users ?? []}
+                  tint={clientColor}
+                  onChange={() => onReload?.()}
+                />
+              </div>
 
               {/* Draft / action buttons */}
               <div className="space-y-2">
@@ -1624,6 +1771,7 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
     if (!name.trim()) return
     setSaving(true)
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
     // Check if production slot is currently empty
     const { data: inProd } = await supabase
       .from('briefs')
@@ -1644,6 +1792,7 @@ function CreateBriefModal({ clientId, clientColor, prefill, onClose, onCreated }
       pipeline_status: productionEmpty ? 'in_production' : 'backlog',
       internal_status: productionEmpty ? 'in_production' : 'backlog',
       sort_order:      productionEmpty ? 0 : 9999,
+      created_by:      user?.id ?? null,
     })
     setSaving(false)
     onCreated()
