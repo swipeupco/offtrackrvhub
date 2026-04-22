@@ -8,16 +8,15 @@ import Image from 'next/image'
 type Mode = 'login' | 'forgot' | 'sent'
 
 function LoginContent() {
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState<string | null>(null)
-  const [mode, setMode]           = useState<Mode>('login')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState<string | null>(null)
+  const [mode, setMode]         = useState<Mode>('login')
   const [clientName, setClientName] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Load client name for personalised subtitle (branding removed from pre-auth page)
   useEffect(() => {
     const cookieSlug = document.cookie.match(/x-client-slug=([^;]+)/)?.[1] ?? null
     const slug = cookieSlug || searchParams.get('client')
@@ -91,6 +90,7 @@ function LoginContent() {
             ← Back to sign in
           </button>
         </div>
+        <p className="text-center text-xs text-zinc-500 mt-6">Built by SwipeUp</p>
       </div>
     )
   }
