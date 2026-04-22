@@ -248,6 +248,10 @@ function LoginContent() {
                 <span className="relative z-10 drop-shadow-sm pointer-events-none">{loading ? 'Signing in…' : 'Sign in'}</span>
               </button>
             </form>
+            <p className="text-xs text-zinc-500 text-center mt-6">
+              Don&apos;t have an account?{' '}
+              <a href="/signup" className="text-zinc-300 hover:text-white font-medium">Sign up</a>
+            </p>
           </>
         )}
       </div>

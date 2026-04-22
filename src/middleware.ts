@@ -52,7 +52,10 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  const isAuthRoute    = pathname.startsWith('/login') || pathname.startsWith('/auth')
+  const isAuthRoute    = pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname.startsWith('/auth')
+  // /reset-password is deliberately not in isAuthRoute: the user arrives
+  // there with an active (recovery) session, so the usual "logged-in users
+  // get redirected" rule would bounce them away from the page they need.
   const isPublicAsset  = pathname.startsWith('/_next') || pathname.startsWith('/favicon') || /\.(png|svg|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
   const isShareRoute   = pathname.startsWith('/share')
   const isApiRoute     = pathname.startsWith('/api')
