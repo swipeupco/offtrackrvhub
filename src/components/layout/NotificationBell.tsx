@@ -25,9 +25,12 @@ export function NotificationBell() {
 
   async function fetchNotifications() {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setNotifications([]); return }
     const { data } = await supabase
       .from('notifications')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20)
     setNotifications((data as Notification[]) ?? [])
@@ -36,11 +39,19 @@ export function NotificationBell() {
   useEffect(() => {
     fetchNotifications()
     const supabase = createClient()
-    const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchNotifications)
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    let unsub: (() => void) | null = null
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      const channel = supabase
+        .channel(`notifications-${user.id}`)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        }, fetchNotifications)
+        .subscribe()
+      unsub = () => { supabase.removeChannel(channel) }
+    })
+    return () => { if (unsub) unsub() }
   }, [])
 
   useEffect(() => {

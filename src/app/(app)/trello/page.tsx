@@ -1048,6 +1048,8 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   const [mentionOpen, setMentionOpen]       = useState(false)
   const [mentionQuery, setMentionQuery]     = useState('')
   const [mentionStart, setMentionStart]     = useState(0)
+  const [mentionIndex, setMentionIndex]     = useState(0)
+  const [pendingMentionIds, setPendingMentionIds] = useState<string[]>([])
   const endRef   = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -1164,6 +1166,8 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     const mention = `@${user.name} `
     setNewComment(before + mention + after)
     setMentionOpen(false)
+    setMentionIndex(0)
+    setPendingMentionIds(ids => Array.from(new Set([...ids, user.id])))
     setTimeout(() => inputRef.current?.focus(), 10)
   }
 
@@ -1194,14 +1198,14 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     const { data: profile }  = await supabase.from('profiles').select('name').eq('id', user!.id).single()
     const authorName = profile?.name ?? user?.email?.split('@')[0] ?? 'Someone'
 
-    const { error: commentError } = await supabase.from('brief_comments').insert({
+    const { data: inserted, error: commentError } = await supabase.from('brief_comments').insert({
       brief_id:    brief.id,
       content:     text,
       user_id:     user?.id,
       user_email:  user?.email,
       user_name:   authorName,
       is_internal: false,
-    })
+    }).select('id').single()
 
     if (commentError) {
       console.error('Comment insert error:', commentError)
@@ -1214,26 +1218,26 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
       return
     }
 
+    // Persist mentions so the DB trigger can fan out notifications
+    const mentionIdsInText = pendingMentionIds.filter(uid => {
+      const u = mentionUsers.find(m => m.id === uid)
+      return u ? text.includes(`@${u.name}`) : false
+    })
+    if (inserted?.id && mentionIdsInText.length > 0) {
+      await supabase.from('comment_mentions').insert(
+        mentionIdsInText.map(uid => ({ comment_id: inserted.id, user_id: uid }))
+      )
+    }
+
     // Comment saved — clear input and force reload immediately (don't wait for realtime)
     setCommentError(null)
     setNewComment('')
+    setPendingMentionIds([])
     setSending(false)
     await loadComments()
 
-    // Fire notification — appears in bell for ALL users on both portals
-    try {
-      const snippet = text.length > 80 ? text.slice(0, 80) + '…' : text
-      const link    = `/trello?briefId=${brief.id}&clientId=${brief.client_id}`
-      const { error: notifError } = await supabase.from('notifications').insert({
-        message:  `💬 ${authorName} commented on "${brief.name}": ${snippet}`,
-        type:     'comment',
-        link,
-        resolved: false,
-      })
-      if (notifError) console.warn('Notification insert failed:', notifError.message)
-    } catch (err) {
-      console.warn('Notification insert failed:', err)
-    }
+    // Notifications are now emitted by the notify_on_comment DB trigger —
+    // see supabase/schema_v6_task5_notifications_mentions.sql.
   }
 
   const filteredMentions = mentionUsers.filter(u =>
@@ -1250,11 +1254,11 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   }
 
   function renderCommentContent(content: string) {
-    // Highlight @mentions in blue
-    const parts = content.split(/(@\w+)/g)
+    // Highlight @mentions in brand blue
+    const parts = content.split(/(@[\w-]+(?:\s[\w-]+)?)/g)
     return parts.map((part, i) =>
       part.startsWith('@')
-        ? <span key={i} className="font-semibold text-blue-500">{part}</span>
+        ? <span key={i} className="font-semibold" style={{ color: '#4950F8' }}>{part}</span>
         : <span key={i}>{part}</span>
     )
   }
@@ -1667,12 +1671,13 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
             <div className="border-t border-gray-100 p-4 flex-shrink-0 relative">
               {mentionOpen && filteredMentions.length > 0 && (
                 <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 max-h-36 overflow-y-auto">
-                  {filteredMentions.map(u => (
+                  {filteredMentions.map((u, idx) => (
                     <button
                       key={u.id}
                       type="button"
+                      onMouseEnter={() => setMentionIndex(idx)}
                       onMouseDown={e => { e.preventDefault(); insertMention(u) }}
-                      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                      className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-left transition-colors ${idx === mentionIndex ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
                     >
                       <div
                         className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
@@ -1693,6 +1698,29 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     value={newComment}
                     onChange={e => handleCommentChange(e.target.value)}
                     onKeyDown={e => {
+                      if (mentionOpen && filteredMentions.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault()
+                          setMentionIndex(i => Math.min(i + 1, filteredMentions.length - 1))
+                          return
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault()
+                          setMentionIndex(i => Math.max(i - 1, 0))
+                          return
+                        }
+                        if (e.key === 'Enter' || e.key === 'Tab') {
+                          e.preventDefault()
+                          const pick = filteredMentions[mentionIndex] ?? filteredMentions[0]
+                          if (pick) insertMention(pick)
+                          return
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setMentionOpen(false)
+                          return
+                        }
+                      }
                       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(e as any) }
                       if (e.key === 'Escape') setMentionOpen(false)
                     }}
