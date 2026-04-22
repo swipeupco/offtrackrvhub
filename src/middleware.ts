@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const isAuthRoute    = pathname.startsWith('/login') || pathname.startsWith('/auth')
-  const isPublicAsset  = pathname.startsWith('/_next') || pathname.startsWith('/favicon')
+  const isPublicAsset  = pathname.startsWith('/_next') || pathname.startsWith('/favicon') || /\.(png|svg|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
   const isShareRoute   = pathname.startsWith('/share')
   const isApiRoute     = pathname.startsWith('/api')
 
@@ -79,5 +79,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:png|svg|jpg|jpeg|gif|webp|ico)$).*)'],
 }
