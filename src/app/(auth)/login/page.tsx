@@ -187,6 +187,8 @@ function LoginContent() {
           </>
         )}
       </div>
+
+      <p className="text-center text-xs text-zinc-500 mt-6">Built by SwipeUp</p>
     </div>
   )
 }
