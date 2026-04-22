@@ -214,7 +214,7 @@ export function Sidebar() {
         <p className="text-xs text-gray-400">Built by</p>
         <a href="https://swipeupco.com" target="_blank" rel="noopener noreferrer">
           <Image
-            src="/swipeup-logo.png"
+            src="/SwipeUp_White.svg"
             alt="SwipeUp"
             width={100}
             height={28}
