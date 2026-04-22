@@ -1097,22 +1097,33 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
     saveField('sizes', next.length ? next : null)
   }
 
-  // Load current user + mentionable users
+  // Load current user + mentionable users scoped to this brief's client board:
+  //  - profiles where client_id = brief.client_id (client members)
+  //  - staff with access to this client via staff_client_access
+  // Self is included so users can @mention themselves (useful for follow-ups /
+  // self-reminders, and matches the spec's test flow).
   useEffect(() => {
     async function loadUsers() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) setCurrentUserId(user.id)
-      // Fetch all profiles with same client + all staff/admin
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .or(`client_id.eq.${brief.client_id},is_staff.eq.true,is_admin.eq.true`)
-      setMentionUsers(
-        (data ?? [])
-          .filter((p: any) => p.name && p.id !== user?.id)
-          .map((p: any) => ({ id: p.id, name: p.name }))
-      )
+
+      const [clientRes, staffAccessRes] = await Promise.all([
+        supabase.from('profiles').select('id, name').eq('client_id', brief.client_id),
+        supabase.from('staff_client_access').select('staff_id').eq('client_id', brief.client_id),
+      ])
+
+      const staffIds = (staffAccessRes.data ?? []).map((r: any) => r.staff_id as string)
+      const staffProfiles = staffIds.length
+        ? (await supabase.from('profiles').select('id, name').in('id', staffIds)).data ?? []
+        : []
+
+      const merged: Record<string, { id: string; name: string }> = {}
+      ;[...(clientRes.data ?? []), ...staffProfiles].forEach((p: any) => {
+        if (p.name) merged[p.id] = { id: p.id, name: p.name }
+      })
+
+      setMentionUsers(Object.values(merged).sort((a, b) => a.name.localeCompare(b.name)))
     }
     loadUsers()
   }, [brief.client_id])
@@ -1254,10 +1265,14 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   }
 
   function renderCommentContent(content: string) {
-    // Highlight @mentions in brand blue
-    const parts = content.split(/(@[\w-]+(?:\s[\w-]+)?)/g)
+    // Highlight @mention tokens in brand blue. Matches single-word handles
+    // only so trailing text after a mention stays in the default colour.
+    // Multi-word display names (e.g. "Eden Jannides") only get the first
+    // token blued — acceptable trade-off vs. previous greedy regex that
+    // swallowed the rest of the message.
+    const parts = content.split(/(@[\w-]+)/g)
     return parts.map((part, i) =>
-      part.startsWith('@')
+      /^@[\w-]+$/.test(part)
         ? <span key={i} className="font-semibold" style={{ color: '#4950F8' }}>{part}</span>
         : <span key={i}>{part}</span>
     )
