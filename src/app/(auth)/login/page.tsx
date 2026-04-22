@@ -3,23 +3,21 @@
 import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 
-interface ClientBranding {
-  name: string
-  color: string
-  logo_url: string | null
-}
+type Mode = 'login' | 'forgot' | 'sent'
 
 function LoginContent() {
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
-  const [branding, setBranding]   = useState<ClientBranding | null>(null)
+  const [mode, setMode]           = useState<Mode>('login')
+  const [clientName, setClientName] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Load client branding — subdomain cookie takes priority, then ?client= param
+  // Load client name for personalised subtitle (branding removed from pre-auth page)
   useEffect(() => {
     const cookieSlug = document.cookie.match(/x-client-slug=([^;]+)/)?.[1] ?? null
     const slug = cookieSlug || searchParams.get('client')
@@ -27,13 +25,11 @@ function LoginContent() {
     const supabase = createClient()
     supabase
       .from('clients')
-      .select('name, color, logo_url')
+      .select('name')
       .eq('slug', slug)
       .single()
-      .then(({ data }) => { if (data) setBranding(data) })
+      .then(({ data }) => { if (data?.name) setClientName(data.name) })
   }, [searchParams])
-
-  const accentColor = branding?.color ?? '#14C29F'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -50,77 +46,147 @@ function LoginContent() {
     }
   }
 
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://portal.swipeupco.com/auth/callback?next=/reset-password',
+    })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      setMode('sent')
+      setLoading(false)
+    }
+  }
+
+  const logo = (
+    <div className="flex justify-center mb-8">
+      <Image
+        src="/SwipeUp_White.svg"
+        alt="SwipeUp"
+        width={160}
+        height={39}
+        priority
+      />
+    </div>
+  )
+
+  if (mode === 'sent') {
+    return (
+      <div className="w-full max-w-sm">
+        {logo}
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl text-center">
+          <p className="text-lg font-bold text-white mb-2">Check your email</p>
+          <p className="text-sm text-zinc-400 mb-6">
+            If an account exists for <span className="text-white">{email}</span>, you&apos;ll receive a reset link shortly.
+          </p>
+          <button
+            onClick={() => { setMode('login'); setError(null) }}
+            className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+          >
+            ← Back to sign in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-sm">
-      {/* Logo / branding */}
-      <div className="flex justify-center mb-8">
-        {branding?.logo_url ? (
-          <img
-            src={branding.logo_url}
-            alt={branding.name}
-            className="max-h-12 max-w-[180px] object-contain brightness-0 invert"
-          />
-        ) : (
-          <div className="text-center">
-            <p className="text-2xl font-black tracking-tight text-white">
-              SwipeUp<span style={{ color: accentColor }}>.</span>
-            </p>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mt-0.5">Client Portal</p>
-          </div>
-        )}
-      </div>
+      {logo}
 
       <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-8 shadow-2xl">
-        <h1 className="text-xl font-bold text-white mb-1">Welcome back</h1>
-        <p className="text-sm text-zinc-400 mb-6">
-          {`Sign in to ${branding?.name ? branding.name + ' portal' : 'your portal'}`}
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-zinc-300">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-zinc-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-400 rounded-lg bg-red-950 border border-red-900 px-3 py-2">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: accentColor }}
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+        {mode === 'forgot' ? (
+          <>
+            <h1 className="text-xl font-bold text-white mb-1">Reset password</h1>
+            <p className="text-sm text-zinc-400 mb-6">We&apos;ll send a reset link to your email.</p>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-zinc-300">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                />
+              </div>
+              {error && (
+                <p className="text-sm text-red-400 rounded-lg bg-red-950 border border-red-900 px-3 py-2">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-[#14C29F] transition-opacity disabled:opacity-60"
+              >
+                {loading ? 'Sending…' : 'Send reset link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null) }}
+                className="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                ← Back to sign in
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl font-bold text-white mb-1">Welcome back</h1>
+            <p className="text-sm text-zinc-400 mb-6">
+              {clientName ? `Sign in to ${clientName} portal` : 'Sign in to your portal'}
+            </p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-zinc-300">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-zinc-300">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(null) }}
+                    className="text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#14C29F] focus:outline-none focus:ring-2 focus:ring-[#14C29F]/20"
+                />
+              </div>
+              {error && (
+                <p className="text-sm text-red-400 rounded-lg bg-red-950 border border-red-900 px-3 py-2">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white bg-[#14C29F] transition-opacity disabled:opacity-60"
+              >
+                {loading ? 'Signing in…' : 'Sign in'}
+              </button>
+            </form>
+          </>
+        )}
       </div>
-
-      <p className="text-center text-xs text-zinc-600 mt-6">
-        Built by SwipeUp
-      </p>
     </div>
   )
 }

@@ -18,6 +18,7 @@ interface Brief {
   campaign: string | null
   content_type: string | null
   pipeline_status: string
+  internal_status: string | null
   draft_url: string | null
   due_date: string | null
 }
@@ -61,7 +62,7 @@ export default function DashboardPage() {
 
       const { data: briefData } = await supabase
         .from('briefs')
-        .select('id, name, campaign, content_type, pipeline_status, draft_url, due_date')
+        .select('id, name, campaign, content_type, pipeline_status, internal_status, draft_url, due_date')
         .eq('client_id', clientId)
         .neq('pipeline_status', 'approved')
         .order('created_at', { ascending: false })
@@ -80,7 +81,10 @@ export default function DashboardPage() {
   const nextShow        = upcomingShows[0] ?? null
 
   const readyForReview  = briefs.filter(b => b.pipeline_status === 'client_review' && b.draft_url)
-  const inProduction    = briefs.filter(b => ['backlog', 'in_production', 'qa_review'].includes(b.pipeline_status))
+  const inProduction    = briefs.filter(b =>
+    b.pipeline_status === 'in_production' &&
+    b.internal_status !== 'approved_by_client'
+  )
 
   useEffect(() => {
     if (!nextShow) return
