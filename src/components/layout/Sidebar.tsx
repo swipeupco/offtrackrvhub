@@ -11,7 +11,6 @@ import {
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { NotificationBell } from '@/components/layout/NotificationBell'
 import { useActiveClient } from '@/lib/active-client-context'
 
 export function Sidebar() {
@@ -168,17 +167,8 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Notifications + Sign out */}
+      {/* Sign out */}
       <div className="px-3 pb-2 space-y-0.5">
-        <div className="flex items-center gap-2 px-3 py-2">
-          <NotificationBell />
-          <Link
-            href="/account/notifications"
-            className="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            Notifications
-          </Link>
-        </div>
         {isAdmin && !isStaff && (
           <a
             href="https://hub.swipeupco.com"
