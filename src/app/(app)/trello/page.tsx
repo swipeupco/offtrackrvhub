@@ -1235,9 +1235,13 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
       return u ? text.includes(`@${u.name}`) : false
     })
     if (inserted?.id && mentionIdsInText.length > 0) {
-      await supabase.from('comment_mentions').insert(
+      const { error: mentionError } = await supabase.from('comment_mentions').insert(
         mentionIdsInText.map(uid => ({ comment_id: inserted.id, user_id: uid }))
       )
+      if (mentionError) {
+        console.error('comment_mentions insert failed:', mentionError)
+        setCommentError('Comment saved, but we could not tag everyone you mentioned. Please try again or tell your admin.')
+      }
     }
 
     // Comment saved — clear input and force reload immediately (don't wait for realtime)
