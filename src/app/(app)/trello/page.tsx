@@ -492,14 +492,14 @@ export default function CreativePipeline() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-3 gap-5">
-            {[1,2,3].map(n => <div key={n} className="h-96 rounded-2xl bg-gray-200 animate-pulse" />)}
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {[1,2,3].map(n => <div key={n} className="h-96 flex-shrink-0 w-[272px] rounded-2xl bg-gray-200 animate-pulse" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-5 items-start">
+          <div className="flex gap-3 overflow-x-auto pb-2 items-start">
 
             {/* ── Backlog ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
@@ -531,7 +531,7 @@ export default function CreativePipeline() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="p-3 space-y-3 min-h-[300px]"
+                    className="p-3 space-y-3 min-h-[300px] max-h-[calc(100vh-260px)] overflow-y-auto"
                   >
                     {backlogOrder.map((brief, index) => (
                       <Draggable key={brief.id} draggableId={brief.id} index={index}>
@@ -569,7 +569,7 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── In Production ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0" />
@@ -585,7 +585,7 @@ export default function CreativePipeline() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="p-3 space-y-3 min-h-[300px]"
+                    className="p-3 space-y-3 min-h-[300px] max-h-[calc(100vh-260px)] overflow-y-auto"
                   >
                     {inProduction.map((brief, index) => (
                       <Draggable key={brief.id} draggableId={brief.id} index={index}>
@@ -624,7 +624,7 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── Approved ── */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
@@ -635,7 +635,7 @@ export default function CreativePipeline() {
                 </div>
                 <div className="h-7 w-7" />
               </div>
-              <div className="p-3 space-y-3 min-h-[300px]">
+              <div className="p-3 space-y-3 min-h-[300px] max-h-[calc(100vh-260px)] overflow-y-auto">
                 {approvedCards.map(brief => (
                   <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
                 ))}
