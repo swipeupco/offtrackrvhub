@@ -500,24 +500,24 @@ export default function CreativePipeline() {
 
         {loading ? (
           <div className="flex gap-3 overflow-x-auto pb-2">
-            {[1,2,3].map(n => <div key={n} className="h-96 flex-shrink-0 w-[272px] rounded-2xl bg-gray-200 animate-pulse" />)}
+            {[1,2,3].map(n => <div key={n} className="h-96 flex-shrink-0 w-[272px] rounded-2xl bg-white/5 animate-pulse" />)}
           </div>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 items-start">
 
             {/* ── Backlog ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+            <div className="flex-shrink-0 w-[272px] bg-[#0F1420] rounded-2xl border border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
-                  <h3 className="text-sm font-semibold text-gray-800">Backlog</h3>
-                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                  <h3 className="text-sm font-semibold text-white">Backlog</h3>
+                  <span className="text-[11px] font-medium text-gray-300 bg-white/10 rounded-full px-2 py-0.5">
                     {backlogOrder.length}
                   </span>
                 </div>
                 <button
                   onClick={() => setShowBriefModal(true)}
-                  className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-white/10 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -566,7 +566,7 @@ export default function CreativePipeline() {
                     ))}
                     {provided.placeholder}
                     {backlogOrder.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                      <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] py-12 text-center">
                         <p className="text-xs text-gray-400">No briefs in backlog</p>
                       </div>
                     )}
@@ -576,12 +576,12 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── In Production ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+            <div className="flex-shrink-0 w-[272px] bg-[#0F1420] rounded-2xl border border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0" />
-                  <h3 className="text-sm font-semibold text-gray-800">In Production</h3>
-                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                  <h3 className="text-sm font-semibold text-white">In Production</h3>
+                  <span className="text-[11px] font-medium text-gray-300 bg-white/10 rounded-full px-2 py-0.5">
                     {inProduction.length}
                   </span>
                 </div>
@@ -620,7 +620,7 @@ export default function CreativePipeline() {
                     ))}
                     {provided.placeholder}
                     {inProduction.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                      <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] py-12 text-center">
                         <p className="text-xs text-gray-400">Nothing in production yet</p>
                         <p className="text-[11px] text-gray-300 mt-1">Drag a brief here or approve one</p>
                       </div>
@@ -631,12 +631,12 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── Approved ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+            <div className="flex-shrink-0 w-[272px] bg-[#0F1420] rounded-2xl border border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                  <h3 className="text-sm font-semibold text-gray-800">Approved</h3>
-                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+                  <h3 className="text-sm font-semibold text-white">Approved</h3>
+                  <span className="text-[11px] font-medium text-gray-300 bg-white/10 rounded-full px-2 py-0.5">
                     {allApproved.length}
                   </span>
                 </div>
@@ -647,14 +647,14 @@ export default function CreativePipeline() {
                   <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
                 ))}
                 {allApproved.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+                  <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] py-12 text-center">
                     <p className="text-xs text-gray-400">No approved briefs yet</p>
                   </div>
                 )}
                 {allApproved.length > 10 && (
                   <button
                     onClick={() => setShowAllApproved(v => !v)}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-gray-300 hover:bg-white/10 transition-colors"
                   >
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllApproved ? 'rotate-180' : ''}`} />
                     {showAllApproved ? 'Show less' : `See all ${allApproved.length} approved`}
@@ -775,7 +775,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
 
   return (
     <div
-      className={`rounded-2xl bg-white p-4 transition-all ${isDragging ? 'cursor-grabbing rotate-1 scale-105' : 'cursor-grab border border-gray-100 shadow-sm hover:shadow-md'}`}
+      className={`rounded-2xl bg-[#161B26] p-4 transition-all ${isDragging ? 'cursor-grabbing rotate-1 scale-105' : 'cursor-grab border border-white/[0.08] shadow-sm hover:border-white/[0.14] hover:shadow-md'}`}
       style={isDragging ? {
         boxShadow: `0 0 0 2px ${clientColor}, 0 20px 40px ${clientColor}55, 0 8px 24px rgba(0,0,0,0.15)`,
       } : {}}
@@ -805,12 +805,12 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         ) : (
           <div
             className="h-full w-full flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)` }}
+            style={{ background: `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}33 0%, rgba(11,18,32,0.9) 100%)` }}
           >
             {typeInfo ? (
-              <typeInfo.icon className="h-10 w-10 opacity-30" style={{ color: typeInfo.color }} />
+              <typeInfo.icon className="h-10 w-10 opacity-60" style={{ color: typeInfo.color }} />
             ) : (
-              <div className="h-10 w-10 rounded-full bg-gray-200 opacity-50" />
+              <div className="h-10 w-10 rounded-full bg-white/10" />
             )}
           </div>
         )}
@@ -864,19 +864,19 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
             </button>
 
             {coverMenuOpen && (
-              <div className="absolute bottom-full mb-1 right-0 w-44 rounded-xl bg-white border border-zinc-200 shadow-xl overflow-hidden z-20">
+              <div className="absolute bottom-full mb-1 right-0 w-44 rounded-xl bg-[#1E2432] border border-white/10 shadow-xl overflow-hidden z-20">
                 <button
                   {...STOP_DRAG}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-200 hover:bg-white/5 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="h-3.5 w-3.5 text-zinc-400" />
+                  <Upload className="h-3.5 w-3.5 text-gray-400" />
                   {brief.cover_url ? 'Replace cover' : 'Upload cover'}
                 </button>
                 {brief.cover_url && onCoverDelete && (
                   <button
                     {...STOP_DRAG}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
                     onClick={() => { setCoverMenuOpen(false); onCoverDelete() }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -893,19 +893,19 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
       {typeInfo && (
         <span
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold mb-2"
-          style={{ backgroundColor: `${typeInfo.color}18`, color: typeInfo.color }}
+          style={{ backgroundColor: `${typeInfo.color}14`, color: typeInfo.color }}
         >
           {typeInfo.id}
         </span>
       )}
 
       {/* Title */}
-      <p className="text-sm font-semibold text-gray-800 leading-snug">{brief.name}</p>
+      <p className="text-sm font-semibold text-[#F1F5F9] leading-snug">{brief.name}</p>
 
       {/* Status badges */}
       <div className="flex gap-1.5 flex-wrap mt-2 mb-3">
         {isRevisions && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-50 text-red-500 border border-red-100">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-500/15 text-red-300 border border-red-500/25">
             Revisions requested
           </span>
         )}
@@ -915,18 +915,18 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
               ⬆ Up next
             </span>
           ) : (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-400 border border-gray-100">
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
               Not started
             </span>
           )
         )}
         {!hasDraft && reviewMode && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-400 border border-gray-100">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
             Awaiting draft
           </span>
         )}
         {brief.due_date && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-gray-50 text-gray-400 border border-gray-100">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
             Due {format(new Date(brief.due_date), 'd MMM')}
           </span>
         )}
@@ -952,7 +952,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
             href={brief.draft_url!}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/10 py-2 text-xs font-semibold text-gray-300 hover:bg-white/5 transition-colors"
           >
             <Play className="h-3 w-3" />
             View Draft
@@ -961,7 +961,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
           <button
             {...STOP_DRAG}
             disabled
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-100 py-2 text-xs font-medium text-gray-300 cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/5 py-2 text-xs font-medium text-gray-500 cursor-not-allowed"
           >
             <Play className="h-3 w-3" />
             View Draft
@@ -975,7 +975,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
           className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-colors ${
             reviewMode && hasDraft
               ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-              : 'bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed'
+              : 'bg-white/5 text-gray-500 border border-white/10 cursor-not-allowed'
           }`}
         >
           {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
@@ -988,7 +988,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
           {...STOP_DRAG}
           onClick={e => { e.stopPropagation(); requestRevisions() }}
           disabled={revisioning}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
+          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
         >
           {revisioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
           Request Revisions
@@ -1003,16 +1003,16 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
 function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: string }) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === brief.content_type)
   return (
-    <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+    <div className="rounded-2xl bg-[#161B26] border border-white/[0.08] shadow-sm p-4">
       <div className="flex items-start gap-3">
-        <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-500" />
+        <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-400" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 leading-snug truncate">{brief.name}</p>
+          <p className="text-sm font-semibold text-[#F1F5F9] leading-snug truncate">{brief.name}</p>
           {brief.campaign && <p className="text-xs text-gray-400 mt-0.5">{brief.campaign}</p>}
           {typeInfo && (
             <span
               className="mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold"
-              style={{ backgroundColor: `${typeInfo.color}18`, color: typeInfo.color }}
+              style={{ backgroundColor: `${typeInfo.color}14`, color: typeInfo.color }}
             >
               {typeInfo.id}
             </span>
@@ -1020,7 +1020,7 @@ function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: 
         </div>
         {brief.draft_url && (
           <a href={brief.draft_url} target="_blank" rel="noopener noreferrer"
-            className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0 mt-0.5">
+            className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 mt-0.5">
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}
