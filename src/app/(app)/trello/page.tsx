@@ -474,13 +474,20 @@ export default function CreativePipeline() {
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="p-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Creative Requests</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Track and review all your creative work</p>
-          </div>
+      <div
+        className="min-h-[calc(100vh-68px)]"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 70% at 0% 100%, rgba(73, 80, 248, 0.22), transparent 60%), #0B1220',
+        }}
+      >
+        <div className="p-6 space-y-5">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-white">Creative Requests</h1>
+              <p className="text-sm text-gray-400 mt-0.5">Track and review all your creative work</p>
+            </div>
           <button
             onClick={() => setShowBriefModal(true)}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
@@ -696,6 +703,7 @@ export default function CreativePipeline() {
             }}
           />
         )}
+        </div>
       </div>
     </DragDropContext>
   )
