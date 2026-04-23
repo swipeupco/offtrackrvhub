@@ -1,6 +1,6 @@
 import { addDays, differenceInDays, parseISO, format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import type { Show, DeliverablesConfig, MarketingTask } from '@/types'
+import type { Show, DeliverablesConfig } from '@/types'
 
 // ─── Trello helpers ───────────────────────────────────────────────────────────
 

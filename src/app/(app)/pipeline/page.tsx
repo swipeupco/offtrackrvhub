@@ -413,7 +413,7 @@ export default function PipelinePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, load)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [clientLoading])
 
   async function handleDragEnd(result: DropResult) {

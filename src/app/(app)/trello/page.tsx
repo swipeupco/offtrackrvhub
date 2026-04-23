@@ -245,7 +245,7 @@ export default function CreativePipeline() {
     const taggedIds  = [...new Set(tagRows.map(r => r.user_id))]
     const profileIds = [...new Set([...creatorIds, ...taggedIds])]
 
-    let profileMap: Record<string, { id: string; name: string | null; avatar_url: string | null }> = {}
+    const profileMap: Record<string, { id: string; name: string | null; avatar_url: string | null }> = {}
     if (profileIds.length) {
       const seed = (creatorsRes.data ?? []) as { id: string; name: string | null; avatar_url: string | null }[]
       seed.forEach(p => { profileMap[p.id] = p })
@@ -286,7 +286,7 @@ export default function CreativePipeline() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => load(clientId, true))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [clientId, clientLoading])
 
   // Keep backlogOrder in sync with briefs
@@ -419,7 +419,6 @@ export default function CreativePipeline() {
   }
 
   async function handleCoverUpload(briefId: string, file: File | null) {
-    console.log('[cover] handleCoverUpload called', { briefId, file: file?.name, size: file?.size })
     if (!file) { console.warn('[cover] no file, aborting'); return }
 
     const MAX_MB = 10
@@ -454,7 +453,6 @@ export default function CreativePipeline() {
         img.onerror = (e) => reject(new Error(`Image load error: ${e}`))
         img.src = url
       })
-      console.log('[cover] compressed size:', compressed.size)
     } catch (compressErr) {
       console.error('[cover] compression failed:', compressErr)
       alert(`Image compression failed: ${compressErr}`)
@@ -463,7 +461,6 @@ export default function CreativePipeline() {
 
     const supabase = createClient()
     const path = `brief-covers/${briefId}.jpg`
-    console.log('[cover] uploading to storage path:', path)
 
     const { error: uploadError } = await supabase.storage
       .from('brief-assets')
@@ -473,12 +470,10 @@ export default function CreativePipeline() {
       alert(`Cover upload failed: ${uploadError.message}`)
       return
     }
-    console.log('[cover] storage upload success')
 
     // Cache-bust the URL so the card re-renders with the new image
     const { data: { publicUrl } } = supabase.storage.from('brief-assets').getPublicUrl(path)
     const bustedUrl = `${publicUrl}?t=${Date.now()}`
-    console.log('[cover] public URL:', bustedUrl)
 
     const { error: updateError } = await supabase.from('briefs').update({ cover_url: bustedUrl }).eq('id', briefId)
     if (updateError) {
@@ -486,7 +481,6 @@ export default function CreativePipeline() {
       alert(`Saved image but couldn't update the brief: ${updateError.message}`)
       return
     }
-    console.log('[cover] DB updated — setting state')
     setBriefs(prev => prev.map(b => b.id === briefId ? { ...b, cover_url: bustedUrl } : b))
     setSelectedBrief(prev => prev?.id === briefId ? { ...prev, cover_url: bustedUrl } : prev)
   }
