@@ -7,9 +7,9 @@ import {
   CheckCircle2, Play, Plus, X, Send, ExternalLink,
   MessageSquare, RotateCcw, Loader2, ChevronDown, Clock,
   Video, Image, Mail, LayoutGrid, Mic, FileText, CircleDot,
-  GripVertical, Upload, Trash2, AtSign, Pencil, Check,
+  Upload, Trash2, AtSign, Pencil, Check,
 } from 'lucide-react'
-import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -539,12 +539,12 @@ export default function CreativePipeline() {
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
+                            {...provided.dragHandleProps}
                             style={provided.draggableProps.style}
                           >
                             <BriefCard
                               brief={brief}
                               clientColor={clientColor}
-                              dragHandleProps={provided.dragHandleProps}
                               isDragging={snapshot.isDragging}
                               isUpNext={index === 0}
                               onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
@@ -593,13 +593,13 @@ export default function CreativePipeline() {
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
+                            {...provided.dragHandleProps}
                             style={provided.draggableProps.style}
                           >
                             <BriefCard
                               brief={brief}
                               clientColor={clientColor}
                               reviewMode
-                              dragHandleProps={provided.dragHandleProps}
                               isDragging={snapshot.isDragging}
                               onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
                               onApprove={() => handleApprove(brief.id)}
@@ -703,12 +703,19 @@ export default function CreativePipeline() {
 
 // ─── Brief Card ───────────────────────────────────────────────────────────────
 
-function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
+// Spread on any interactive element inside a draggable card so that
+// press-and-hold on the element doesn't kick off a drag on the card.
+const STOP_DRAG = {
+  onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+  onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+  onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+}
+
+function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
   brief: Brief
   clientColor: string
   reviewMode?: boolean
   isUpNext?: boolean
-  dragHandleProps?: DraggableProvidedDragHandleProps | null
   isDragging?: boolean
   onOpen: () => void
   onApprove: () => void
@@ -760,32 +767,20 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
 
   return (
     <div
-      className={`rounded-2xl bg-white p-4 cursor-pointer transition-all ${isDragging ? 'rotate-1 scale-105' : 'border border-gray-100 shadow-sm hover:shadow-md'}`}
+      className={`rounded-2xl bg-white p-4 transition-all ${isDragging ? 'cursor-grabbing rotate-1 scale-105' : 'cursor-grab border border-gray-100 shadow-sm hover:shadow-md'}`}
       style={isDragging ? {
         boxShadow: `0 0 0 2px ${clientColor}, 0 20px 40px ${clientColor}55, 0 8px 24px rgba(0,0,0,0.15)`,
       } : {}}
       onClick={onOpen}
     >
-      {/* Attribution + drag handle row */}
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center" onClick={e => e.stopPropagation()}>
-          {brief.creator && (
-            <UserAvatar user={brief.creator} size={24} tint={clientColor} />
-          )}
-          {(brief.tagged_users?.length ?? 0) > 0 && (
-            <div className={brief.creator ? '-ml-2' : ''}>
-              <StackedAvatars users={brief.tagged_users ?? []} tint={clientColor} size={22} />
-            </div>
-          )}
-        </div>
-        {dragHandleProps && (
-          <div onClick={e => e.stopPropagation()}>
-            <div
-              {...dragHandleProps}
-              className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-gray-200 hover:text-gray-400 transition-colors"
-            >
-              <GripVertical className="h-4 w-4" />
-            </div>
+      {/* Attribution row */}
+      <div className="flex items-center mb-1.5" onClick={e => e.stopPropagation()}>
+        {brief.creator && (
+          <UserAvatar user={brief.creator} size={24} tint={clientColor} />
+        )}
+        {(brief.tagged_users?.length ?? 0) > 0 && (
+          <div className={brief.creator ? '-ml-2' : ''}>
+            <StackedAvatars users={brief.tagged_users ?? []} tint={clientColor} size={22} />
           </div>
         )}
       </div>
@@ -851,6 +846,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
             onClick={e => e.stopPropagation()}
           >
             <button
+              {...STOP_DRAG}
               className="rounded-lg bg-black/70 px-2 py-1 flex items-center gap-1 hover:bg-black/85 transition-colors"
               onClick={() => setCoverMenuOpen(v => !v)}
             >
@@ -862,6 +858,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
             {coverMenuOpen && (
               <div className="absolute bottom-full mb-1 right-0 w-44 rounded-xl bg-white border border-zinc-200 shadow-xl overflow-hidden z-20">
                 <button
+                  {...STOP_DRAG}
                   className="flex items-center gap-2 w-full px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -870,6 +867,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
                 </button>
                 {brief.cover_url && onCoverDelete && (
                   <button
+                    {...STOP_DRAG}
                     className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
                     onClick={() => { setCoverMenuOpen(false); onCoverDelete() }}
                   >
@@ -928,6 +926,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
 
       {/* Open Brief button — explicit affordance; full card also opens on click */}
       <button
+        {...STOP_DRAG}
         type="button"
         onClick={e => { e.stopPropagation(); onOpen() }}
         className="mb-2 w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
@@ -941,6 +940,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
       <div className="flex gap-2" onClick={e => e.stopPropagation()}>
         {hasDraft ? (
           <a
+            {...STOP_DRAG}
             href={brief.draft_url!}
             target="_blank"
             rel="noopener noreferrer"
@@ -951,6 +951,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
           </a>
         ) : (
           <button
+            {...STOP_DRAG}
             disabled
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-100 py-2 text-xs font-medium text-gray-300 cursor-not-allowed"
           >
@@ -960,6 +961,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
         )}
 
         <button
+          {...STOP_DRAG}
           onClick={approve}
           disabled={approving || !reviewMode || !hasDraft}
           className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-colors ${
@@ -975,6 +977,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, dragHandleProps, 
 
       {reviewMode && hasDraft && !isRevisions && (
         <button
+          {...STOP_DRAG}
           onClick={e => { e.stopPropagation(); requestRevisions() }}
           disabled={revisioning}
           className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors"
