@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Lazy init — instantiating at module scope fails the Next build whenever
+// OPENAI_API_KEY isn't present at build time (e.g. CI without secrets).
+let openaiClient: OpenAI | null = null
+function getOpenAI() {
+  if (!openaiClient) openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  return openaiClient
+}
 
 const SYSTEM_PROMPT = `You are a creative brief assistant for a marketing agency. You help clients brief their creative team on content they need produced.
 
@@ -19,7 +25,7 @@ Return ONLY valid JSON. No markdown fences. Keep the brief concise — 3 short l
 export async function POST(request: Request) {
   try {
     const { prompt } = await request.json()
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
