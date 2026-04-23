@@ -35,7 +35,26 @@ interface Brief {
   created_by?: string | null
   creator?: { id: string; name: string | null; avatar_url: string | null } | null
   tagged_users?: { id: string; name: string | null; avatar_url: string | null }[]
+  cover_attachment?: BriefAttachment | null
 }
+
+interface BriefAttachment {
+  id: string
+  brief_id: string
+  file_path: string
+  file_name: string
+  file_type: string
+  file_size: number
+  is_cover: boolean
+  created_at: string
+}
+
+const ATTACHMENT_BUCKET = 'brief-attachments'
+const ATTACHMENT_MAX_MB = 10
+const ATTACHMENT_ACCEPT = 'image/jpeg,image/jpg,image/png,image/webp,image/gif,application/pdf'
+const ATTACHMENT_MIME = [
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+] as const
 
 interface Comment {
   id: string
@@ -70,6 +89,12 @@ function initialsOf(name: string | null | undefined) {
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : parts[0].slice(0, 2).toUpperCase()
+}
+
+function attachmentPublicUrl(filePath: string): string {
+  const supabase = createClient()
+  const { data: { publicUrl } } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(filePath)
+  return publicUrl
 }
 
 function UserAvatar({
@@ -201,14 +226,20 @@ export default function CreativePipeline() {
     const briefIds   = all.map(b => b.id)
     const creatorIds = [...new Set(all.map(b => b.created_by).filter(Boolean))] as string[]
 
-    const [tagsRes, creatorsRes] = await Promise.all([
+    const [tagsRes, creatorsRes, coversRes] = await Promise.all([
       briefIds.length
         ? supabase.from('brief_assigned_users').select('brief_id, user_id').in('brief_id', briefIds)
         : Promise.resolve({ data: [] as { brief_id: string; user_id: string }[] }),
       creatorIds.length
         ? supabase.from('profiles').select('id, name, avatar_url').in('id', creatorIds)
         : Promise.resolve({ data: [] as { id: string; name: string | null; avatar_url: string | null }[] }),
+      briefIds.length
+        ? supabase.from('brief_attachments').select('*').in('brief_id', briefIds).eq('is_cover', true)
+        : Promise.resolve({ data: [] as BriefAttachment[] }),
     ])
+
+    const coverByBrief: Record<string, BriefAttachment> = {}
+    ;((coversRes.data as BriefAttachment[] | null) ?? []).forEach(a => { coverByBrief[a.brief_id] = a })
 
     const tagRows    = (tagsRes.data ?? []) as { brief_id: string; user_id: string }[]
     const taggedIds  = [...new Set(tagRows.map(r => r.user_id))]
@@ -232,6 +263,7 @@ export default function CreativePipeline() {
         .filter(r => r.brief_id === b.id)
         .map(r => profileMap[r.user_id])
         .filter(Boolean),
+      cover_attachment: coverByBrief[b.id] ?? null,
     }))
 
     setBriefs(enriched)
@@ -638,6 +670,9 @@ export default function CreativePipeline() {
                 <div className="h-7 w-7" />
               </div>
               <div className="p-3 space-y-3 min-h-[300px] max-h-[calc(100vh-260px)] overflow-y-auto">
+                <p className="text-xs text-zinc-500 px-1 -mt-1">
+                  Approved briefs auto-delete after 90 days
+                </p>
                 {approvedCards.map(brief => (
                   <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
                 ))}
@@ -804,27 +839,42 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         onMouseEnter={() => setCoverHover(true)}
         onMouseLeave={() => setCoverHover(false)}
       >
-        {brief.cover_url ? (
-          <img src={brief.cover_url} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div
-            className="h-full w-full flex items-center justify-center"
-            style={{
-              background: isDark
-                ? `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}33 0%, rgba(11,18,32,0.9) 100%)`
-                : `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)`,
-            }}
-          >
-            {typeInfo ? (
-              <typeInfo.icon
-                className={`h-10 w-10 ${isDark ? 'opacity-60' : 'opacity-30'}`}
-                style={{ color: typeInfo.color }}
-              />
-            ) : (
-              <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-white/10 opacity-50 dark:opacity-100" />
-            )}
-          </div>
-        )}
+        {(() => {
+          const att = brief.cover_attachment
+          if (att) {
+            if (att.file_type === 'application/pdf') {
+              return (
+                <div className="h-full w-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-rose-500/20 via-[#161B26] to-rose-900/40">
+                  <FileText className="h-8 w-8 text-rose-300" />
+                  <p className="text-[10px] font-semibold text-rose-100 truncate max-w-[90%]">{att.file_name}</p>
+                </div>
+              )
+            }
+            return <img src={attachmentPublicUrl(att.file_path)} alt="" className="h-full w-full object-cover" />
+          }
+          if (brief.cover_url) {
+            return <img src={brief.cover_url} alt="" className="h-full w-full object-cover" />
+          }
+          return (
+            <div
+              className="h-full w-full flex items-center justify-center"
+              style={{
+                background: isDark
+                  ? `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}33 0%, rgba(11,18,32,0.9) 100%)`
+                  : `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)`,
+              }}
+            >
+              {typeInfo ? (
+                <typeInfo.icon
+                  className={`h-10 w-10 ${isDark ? 'opacity-60' : 'opacity-30'}`}
+                  style={{ color: typeInfo.color }}
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-white/10 opacity-50 dark:opacity-100" />
+              )}
+            </div>
+          )
+        })()}
 
         {/* Campaign badge — top right */}
         {brief.campaign && (
@@ -1003,6 +1053,294 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
           {revisioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
           Request Revisions
         </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Brief Files Section (drawer) ─────────────────────────────────────────────
+
+function BriefFilesSection({ briefId, clientColor, onCoverChanged }: {
+  briefId: string
+  clientColor: string
+  onCoverChanged?: () => void
+}) {
+  const [attachments, setAttachments] = useState<BriefAttachment[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [uploading, setUploading]     = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [hoveredId, setHoveredId]     = useState<string | null>(null)
+  const [dragOver, setDragOver]       = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function loadAttachments() {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('brief_attachments')
+      .select('*')
+      .eq('brief_id', briefId)
+      .order('created_at', { ascending: true })
+    if (error) console.error('[files] load error:', error)
+    setAttachments((data as BriefAttachment[]) ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadAttachments()
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`brief-attachments-${briefId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'brief_attachments', filter: `brief_id=eq.${briefId}` },
+        () => loadAttachments(),
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [briefId])
+
+  async function uploadFiles(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (list.length === 0) return
+
+    setUploadError(null)
+    for (const file of list) {
+      if (!(ATTACHMENT_MIME as readonly string[]).includes(file.type)) {
+        setUploadError(`"${file.name}" is not a supported type — images and PDFs only.`)
+        continue
+      }
+      if (file.size > ATTACHMENT_MAX_MB * 1024 * 1024) {
+        setUploadError(
+          `"${file.name}" is larger than ${ATTACHMENT_MAX_MB}MB. Upload to Drive and link it as a comment instead.`,
+        )
+        continue
+      }
+
+      setUploading(true)
+      const supabase = createClient()
+      const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) + Date.now().toString(36)
+      // Sanitise spaces in the original filename so the storage key is URL-safe.
+      const safeName = file.name.replace(/\s+/g, '-')
+      const path = `${briefId}/${uuid}-${safeName}`
+
+      const { error: upErr } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false })
+      if (upErr) {
+        console.error('[files] upload error:', upErr)
+        setUploadError(`Could not upload "${file.name}": ${upErr.message}`)
+        setUploading(false)
+        continue
+      }
+
+      // First attachment on a brief auto-becomes the cover.
+      const hasExistingCover = attachments.some(a => a.is_cover)
+      const { error: insErr } = await supabase.from('brief_attachments').insert({
+        brief_id:  briefId,
+        file_path: path,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        is_cover:  !hasExistingCover,
+      })
+      if (insErr) {
+        console.error('[files] insert error:', insErr)
+        setUploadError(`Saved file but couldn't record it: ${insErr.message}`)
+      } else if (!hasExistingCover) {
+        onCoverChanged?.()
+      }
+      setUploading(false)
+    }
+    await loadAttachments()
+  }
+
+  async function setCover(att: BriefAttachment) {
+    if (att.is_cover) return
+    const supabase = createClient()
+    // Clear other covers for this brief, then mark the target.
+    await supabase.from('brief_attachments')
+      .update({ is_cover: false })
+      .eq('brief_id', briefId)
+      .neq('id', att.id)
+    await supabase.from('brief_attachments')
+      .update({ is_cover: true })
+      .eq('id', att.id)
+    await loadAttachments()
+    onCoverChanged?.()
+  }
+
+  async function deleteAttachment(att: BriefAttachment) {
+    const supabase = createClient()
+    await supabase.storage.from(ATTACHMENT_BUCKET).remove([att.file_path])
+    await supabase.from('brief_attachments').delete().eq('id', att.id)
+    setConfirmDeleteId(null)
+    await loadAttachments()
+    if (att.is_cover) onCoverChanged?.()
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const files = e.dataTransfer?.files
+    if (files && files.length > 0) uploadFiles(files)
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Files</p>
+
+      {/* Thumbnail grid */}
+      {loading ? (
+        <div className="flex gap-2">
+          {[1,2,3].map(n => <div key={n} className="h-[72px] w-[72px] rounded-lg bg-gray-100 dark:bg-white/5 animate-pulse" />)}
+        </div>
+      ) : attachments.length > 0 ? (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {attachments.map(att => {
+            const isImage = att.file_type.startsWith('image/')
+            const isCover = att.is_cover
+            return (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => setCover(att)}
+                onMouseEnter={() => setHoveredId(att.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                aria-label={isCover ? `${att.file_name} (cover)` : `Set "${att.file_name}" as cover`}
+                className={`relative h-[72px] w-[72px] rounded-lg overflow-hidden border transition-all ${
+                  isCover
+                    ? 'border-[#4950F8] ring-2 ring-[#4950F8]/30'
+                    : 'border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'
+                }`}
+                style={isCover ? { borderColor: clientColor, boxShadow: `0 0 0 2px ${clientColor}33` } : undefined}
+              >
+                {isImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={attachmentPublicUrl(att.file_path)} alt={att.file_name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex flex-col items-center justify-center gap-0.5 bg-rose-50 dark:bg-rose-500/10">
+                    <FileText className="h-5 w-5 text-rose-500 dark:text-rose-300" />
+                    <span className="text-[9px] font-semibold text-rose-500 dark:text-rose-300">PDF</span>
+                  </div>
+                )}
+
+                {/* Cover indicator */}
+                {isCover && (
+                  <span
+                    className="absolute top-1 left-1 rounded-full px-1.5 py-[1px] text-[9px] font-bold text-white shadow-sm"
+                    style={{ backgroundColor: clientColor }}
+                  >
+                    Cover
+                  </span>
+                )}
+
+                {/* Delete button on hover */}
+                {hoveredId === att.id && confirmDeleteId !== att.id && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Delete ${att.file_name}`}
+                    onClick={e => { e.stopPropagation(); setConfirmDeleteId(att.id) }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setConfirmDeleteId(att.id) } }}
+                    className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 hover:bg-black/85 flex items-center justify-center cursor-pointer"
+                  >
+                    <X className="h-3 w-3 text-white" />
+                  </span>
+                )}
+
+                {/* Confirm delete overlay */}
+                {confirmDeleteId === att.id && (
+                  <span
+                    className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-1 px-1"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <span className="text-[9px] font-semibold text-white leading-tight">Delete?</span>
+                    <span className="flex gap-1">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={e => { e.stopPropagation(); deleteAttachment(att) }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); deleteAttachment(att) } }}
+                        className="px-1.5 py-0.5 rounded bg-red-500 hover:bg-red-600 text-[9px] font-semibold text-white cursor-pointer"
+                      >
+                        Yes
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(null) }}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setConfirmDeleteId(null) } }}
+                        className="px-1.5 py-0.5 rounded bg-gray-600 hover:bg-gray-700 text-[9px] font-semibold text-white cursor-pointer"
+                      >
+                        No
+                      </span>
+                    </span>
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
+      {/* Drag-drop + click-to-upload zone */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        aria-label="Upload attachments"
+        className={`rounded-xl border border-dashed transition-colors px-4 py-5 text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4950F8]/40 ${
+          dragOver
+            ? 'border-[#4950F8] bg-[#4950F8]/5'
+            : 'border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-gray-50/50 dark:bg-white/[0.02]'
+        }`}
+      >
+        {uploading ? (
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-300">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Uploading…
+          </div>
+        ) : (
+          <>
+            <Upload className="mx-auto h-5 w-5 text-gray-400 mb-1" />
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+              Drop files here or click to upload
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              Images (JPG, PNG, WebP, GIF) or PDF · {ATTACHMENT_MAX_MB}MB max
+            </p>
+          </>
+        )}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ATTACHMENT_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={e => {
+          const files = e.target.files
+          if (files && files.length > 0) uploadFiles(files)
+          e.target.value = ''
+        }}
+      />
+
+      {uploadError && (
+        <p
+          role="alert"
+          className="mt-2 text-[11px] font-medium text-red-500 dark:text-red-400"
+        >
+          {uploadError}
+        </p>
       )}
     </div>
   )
@@ -1567,6 +1905,13 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                   })}
                 </div>
               </div>
+
+              {/* ── Files ── */}
+              <BriefFilesSection
+                briefId={brief.id}
+                clientColor={clientColor}
+                onCoverChanged={onReload}
+              />
 
               {/* ── Delete brief ── */}
               {onDelete && (
