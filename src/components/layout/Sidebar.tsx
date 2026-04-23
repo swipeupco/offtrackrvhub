@@ -7,11 +7,13 @@ import {
   LayoutDashboard, CalendarDays, Settings, Caravan,
   Video, LogOut, Columns2, User, Plus, ShoppingBag,
   BarChart2, Package, ChevronDown, ExternalLink, Layers, ClipboardList, Workflow,
+  Sun, Moon,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useActiveClient } from '@/lib/active-client-context'
+import { useTheme } from '@/lib/theme-context'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -21,6 +23,7 @@ export function Sidebar() {
 
   // All config now comes from context — updates instantly when branding saved
   const { clientId, clientConfig, isAdmin, isStaff, clients, setClientId, loading: clientLoading } = useActiveClient()
+  const { isDark, toggle: toggleTheme } = useTheme()
   const { color, logo_url, name, has_shopify, has_vans, products_label } = clientConfig
   const canSwitch = (isAdmin || isStaff) && clients.length > 1
 
@@ -180,6 +183,16 @@ export function Sidebar() {
             SwipeUp Hub
           </a>
         )}
+        <button
+          onClick={toggleTheme}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+        >
+          {isDark
+            ? <Sun  className="h-[18px] w-[18px] flex-shrink-0" />
+            : <Moon className="h-[18px] w-[18px] flex-shrink-0" />}
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </button>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"

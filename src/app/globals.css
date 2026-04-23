@@ -1,9 +1,22 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode — the ThemeProvider toggles `.dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --brand: #14C29F;
   --brand-dark: #0fa889;
   --brand-light: #e6faf6;
+}
+
+/* Creative Requests page canvas — gradient only in dark mode. */
+.trello-canvas {
+  background-color: #F7F8FA;
+}
+.dark .trello-canvas {
+  background:
+    radial-gradient(ellipse 80% 70% at 0% 100%, rgba(73, 80, 248, 0.22), transparent 60%),
+    #0B1220;
 }
 
 body {
