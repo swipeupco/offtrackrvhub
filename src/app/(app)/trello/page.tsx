@@ -180,7 +180,7 @@ export default function CreativePipeline() {
     const supabase = createClient()
     const { data: briefData } = await supabase
       .from('briefs')
-      .select('*')
+      .select('id, name, description, campaign, content_type, pipeline_status, internal_status, draft_url, due_date, client_id, sort_order, cover_url, sizes, ref_url, created_by')
       .eq('client_id', cid)
       .order('sort_order', { ascending: true })
 
