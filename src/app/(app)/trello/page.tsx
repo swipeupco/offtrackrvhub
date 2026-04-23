@@ -775,10 +775,14 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
 
   return (
     <div
-      className={`rounded-2xl bg-[#161B26] p-4 transition-all ${isDragging ? 'cursor-grabbing rotate-1 scale-105' : 'cursor-grab border border-white/[0.08] shadow-sm hover:border-white/[0.14] hover:shadow-md'}`}
-      style={isDragging ? {
-        boxShadow: `0 0 0 2px ${clientColor}, 0 20px 40px ${clientColor}55, 0 8px 24px rgba(0,0,0,0.15)`,
-      } : {}}
+      className={`rounded-2xl p-4 transition-all border ${isDragging ? 'cursor-grabbing rotate-1 scale-105 border-white/[0.08]' : 'cursor-grab border-white/[0.08] shadow-sm hover:border-white/[0.14] hover:shadow-md'}`}
+      style={{
+        borderTop: `3px solid ${clientColor}`,
+        background: isDragging
+          ? 'linear-gradient(rgba(255,255,255,0.04), rgba(255,255,255,0.04)), #161B26'
+          : '#161B26',
+        ...(isDragging ? { boxShadow: '0 8px 24px rgba(0,0,0,0.45)' } : {}),
+      }}
       onClick={onOpen}
     >
       {/* Attribution row */}
@@ -915,18 +919,18 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
               ⬆ Up next
             </span>
           ) : (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/[0.03] text-gray-400 border border-white/[0.08]">
               Not started
             </span>
           )
         )}
         {!hasDraft && reviewMode && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/[0.03] text-gray-400 border border-white/[0.08]">
             Awaiting draft
           </span>
         )}
         {brief.due_date && (
-          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/5 text-gray-400 border border-white/10">
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-white/[0.03] text-gray-400 border border-white/[0.08]">
             Due {format(new Date(brief.due_date), 'd MMM')}
           </span>
         )}
@@ -937,8 +941,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         {...STOP_DRAG}
         type="button"
         onClick={e => { e.stopPropagation(); onOpen() }}
-        className="mb-2 w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-        style={{ backgroundColor: clientColor }}
+        className="mb-2 w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white bg-[#4950F8] hover:bg-[#5A61FA] transition-colors"
       >
         <ExternalLink className="h-3 w-3" />
         Open Brief
@@ -1003,7 +1006,10 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
 function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: string }) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === brief.content_type)
   return (
-    <div className="rounded-2xl bg-[#161B26] border border-white/[0.08] shadow-sm p-4">
+    <div
+      className="rounded-2xl bg-[#161B26] border border-white/[0.08] shadow-sm p-4"
+      style={{ borderTop: `3px solid ${clientColor}` }}
+    >
       <div className="flex items-start gap-3">
         <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-400" />
         <div className="flex-1 min-w-0">
