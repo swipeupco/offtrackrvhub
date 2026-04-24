@@ -20,6 +20,7 @@ export interface ClientConfig {
   has_shopify: boolean
   has_vans: boolean
   products_label: string
+  in_production_limit: number
 }
 
 const DEFAULT_CONFIG: ClientConfig = {
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: ClientConfig = {
   has_shopify: false,
   has_vans: false,
   products_label: 'Products',
+  in_production_limit: 1,
 }
 
 interface ActiveClientContextValue {
@@ -75,10 +77,21 @@ export function ActiveClientProvider({ children }: { children: React.ReactNode }
     const supabase = createClient()
     supabase
       .from('clients')
-      .select('id, name, slug, color, logo_url, has_shopify, has_vans, products_label')
+      .select('id, name, slug, color, logo_url, has_shopify, has_vans, products_label, in_production_limit')
       .eq('id', clientId)
       .single()
-      .then(({ data }) => { if (data) setClientConfig(data as ClientConfig) })
+      .then(({ data }) => {
+        if (!data) return
+        // Forward-compat: if the Hub migration for in_production_limit hasn't
+        // reached this environment yet, the column comes back undefined — treat
+        // it as the legacy cap of 1 rather than crashing.
+        const cfg = data as Partial<ClientConfig> & { in_production_limit?: number | null }
+        setClientConfig({
+          ...DEFAULT_CONFIG,
+          ...cfg,
+          in_production_limit: cfg.in_production_limit ?? 1,
+        } as ClientConfig)
+      })
   }, [clientId])
 
   useEffect(() => {

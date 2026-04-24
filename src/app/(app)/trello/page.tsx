@@ -170,6 +170,17 @@ export default function CreativePipeline() {
 
   const { clientId, clientConfig, isAdmin, isStaff, setClientId, loading: clientLoading } = useActiveClient()
   const clientColor = clientConfig.color
+  const inProductionLimit = clientConfig.in_production_limit ?? 1
+
+  // Lightweight toast — one message at a time, auto-dismiss after 3.5s.
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = (msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast(msg)
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500)
+  }
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current) }, [])
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -212,15 +223,10 @@ export default function CreativePipeline() {
 
     const all = (briefData ?? []) as Brief[]
 
-    // Enforce: only 1 brief in production at a time — move extras back to backlog
-    const inProd = all.filter(b => ['in_production','client_review','qa_review'].includes(b.pipeline_status))
-    if (inProd.length > 1) {
-      const toBacklog = inProd.slice(1)
-      await Promise.all(toBacklog.map(b =>
-        supabase.from('briefs').update({ pipeline_status: 'backlog', internal_status: 'backlog' }).eq('id', b.id)
-      ))
-      toBacklog.forEach(b => { b.pipeline_status = 'backlog'; b.internal_status = 'backlog' })
-    }
+    // Hub now enforces the in_production cap server-side via a Postgres
+    // trigger (auto_promote_backlog). The old client-side "force extras back
+    // to backlog" pass was a hardcoded limit-of-1 hack — it's wrong once the
+    // limit is configurable, so we just render whatever the DB returns.
 
     // Enrich with creator + tagged users
     const briefIds   = all.map(b => b.id)
@@ -318,17 +324,19 @@ export default function CreativePipeline() {
     // ── Backlog → In Production ──
     if (source.droppableId === 'backlog' && destination.droppableId === 'in-production') {
       const currentInProd = briefs.filter(b => ['in_production','client_review','qa_review'].includes(b.pipeline_status))
-      // Swap existing production brief back to backlog
-      if (currentInProd.length > 0) {
-        await Promise.all(currentInProd.map(b =>
-          supabase.from('briefs').update({ pipeline_status: 'backlog', internal_status: 'backlog' }).eq('id', b.id)
-        ))
+
+      // Cap enforcement: block the move when the In Production column is
+      // already at capacity. Server-side auto-promote fills the column when
+      // something gets approved; a manual drag shouldn't bypass the cap.
+      if (currentInProd.length >= inProductionLimit) {
+        showToast('In Production is full. Complete an existing brief first, or contact us to increase your limit.')
+        return
       }
+
       await supabase.from('briefs')
         .update({ pipeline_status: 'in_production', internal_status: 'in_production' })
         .eq('id', draggableId)
       setBriefs(prev => prev.map(b => {
-        if (currentInProd.find(p => p.id === b.id)) return { ...b, pipeline_status: 'backlog', internal_status: 'backlog' }
         if (b.id === draggableId) return { ...b, pipeline_status: 'in_production', internal_status: 'in_production' }
         return b
       }))
@@ -502,6 +510,16 @@ export default function CreativePipeline() {
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="trello-canvas min-h-[calc(100vh-68px)]">
+        {/* Toast — bottom-center, single slot */}
+        {toast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg bg-[#22283A] text-white border border-white/10 max-w-[90vw]"
+          >
+            {toast}
+          </div>
+        )}
         <div className="p-6 space-y-5">
           {/* Header */}
           <div className="flex items-center justify-between">
