@@ -282,17 +282,31 @@ export default function CreativePipeline() {
     setLoading(false)
   }
 
+  // Realtime: subscribe to brief inserts / updates / deletes scoped to the
+  // active client. Hub-side server triggers (auto_promote_backlog, manual
+  // status pushes) flow through here so the board reflects changes without a
+  // refresh. Each filtered event triggers a silent refetch — pangea/dnd
+  // animates the card transition because Draggable IDs are stable across
+  // reloads.
   useEffect(() => {
     if (clientLoading) return
     if (!clientId) { setLoading(false); setBriefs([]); return }
     load(clientId)
     const supabase = createClient()
     const channel = supabase
-      .channel('client-briefs-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => load(clientId, true))
+      .channel(`client-briefs-live-${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'briefs',
+          filter: `client_id=eq.${clientId}`,
+        },
+        () => load(clientId, true),
+      )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-   
   }, [clientId, clientLoading])
 
   // Keep backlogOrder in sync with briefs
