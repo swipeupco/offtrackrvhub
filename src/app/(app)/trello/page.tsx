@@ -569,6 +569,7 @@ export default function CreativePipeline() {
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
                             style={provided.draggableProps.style}
+                            className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#4950F8]/40"
                           >
                             <BriefCard
                               brief={brief}
@@ -623,6 +624,7 @@ export default function CreativePipeline() {
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
                             style={provided.draggableProps.style}
+                            className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#4950F8]/40"
                           >
                             <BriefCard
                               brief={brief}
@@ -826,49 +828,25 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         )}
       </div>
 
-      {/* Thumbnail / Cover */}
+      {/* Thumbnail / Cover — only renders when there's an is_cover attachment.
+          No attachment = no cover area at all (the legacy briefs.cover_url
+          fallback and pastel placeholder were retired here). */}
+      {brief.cover_attachment && (
       <div
         className="relative h-28 rounded-xl mb-3 overflow-hidden"
         onClick={e => e.stopPropagation()}
         onMouseEnter={() => setCoverHover(true)}
         onMouseLeave={() => setCoverHover(false)}
       >
-        {(() => {
-          const att = brief.cover_attachment
-          if (att) {
-            if (att.file_type === 'application/pdf') {
-              return (
-                <div className="h-full w-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-rose-500/20 via-[#161B26] to-rose-900/40">
-                  <FileText className="h-8 w-8 text-rose-300" />
-                  <p className="text-[10px] font-semibold text-rose-100 truncate max-w-[90%]">{att.file_name}</p>
-                </div>
-              )
-            }
-            return <img src={attachmentPublicUrl(att.file_path)} alt="" className="h-full w-full object-cover" />
-          }
-          if (brief.cover_url) {
-            return <img src={brief.cover_url} alt="" className="h-full w-full object-cover" />
-          }
-          return (
-            <div
-              className="h-full w-full flex items-center justify-center"
-              style={{
-                background: isDark
-                  ? `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}33 0%, rgba(11,18,32,0.9) 100%)`
-                  : `linear-gradient(135deg, ${typeInfo?.color ?? '#6366f1'}22 0%, ${typeInfo?.color ?? '#6366f1'}44 100%)`,
-              }}
-            >
-              {typeInfo ? (
-                <typeInfo.icon
-                  className={`h-10 w-10 ${isDark ? 'opacity-60' : 'opacity-30'}`}
-                  style={{ color: typeInfo.color }}
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-white/10 opacity-50 dark:opacity-100" />
-              )}
-            </div>
-          )
-        })()}
+        {brief.cover_attachment.file_type === 'application/pdf' ? (
+          <div className="h-full w-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-rose-500/20 via-[#161B26] to-rose-900/40">
+            <FileText className="h-8 w-8 text-rose-300" />
+            <p className="text-[10px] font-semibold text-rose-100 truncate max-w-[90%]">{brief.cover_attachment.file_name}</p>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={attachmentPublicUrl(brief.cover_attachment.file_path)} alt="" className="h-full w-full object-cover" />
+        )}
 
         {/* Campaign badge — top right */}
         {brief.campaign && (
@@ -943,6 +921,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
           </div>
         )}
       </div>
+      )}
 
       {/* Content type badge */}
       {typeInfo && (
