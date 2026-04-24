@@ -527,8 +527,8 @@ export default function CreativePipeline() {
           <div className="flex gap-3 overflow-x-auto pb-2 items-start">
 
             {/* ── Backlog ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-white/[0.06]">
+            <div className="flex-shrink-0 w-[272px] bg-gray-50 dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Backlog</h3>
@@ -598,8 +598,8 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── In Production ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-white/[0.06]">
+            <div className="flex-shrink-0 w-[272px] bg-gray-50 dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white">In Production</h3>
@@ -654,8 +654,8 @@ export default function CreativePipeline() {
             </div>
 
             {/* ── Approved ── */}
-            <div className="flex-shrink-0 w-[272px] bg-white dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-white/[0.06]">
+            <div className="flex-shrink-0 w-[272px] bg-gray-50 dark:bg-[#0F1420] rounded-2xl border border-gray-100 dark:border-white/[0.08] shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Approved</h3>
