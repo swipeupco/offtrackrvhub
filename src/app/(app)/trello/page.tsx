@@ -670,7 +670,7 @@ export default function CreativePipeline() {
                   Approved briefs auto-delete after 90 days
                 </p>
                 {approvedCards.map(brief => (
-                  <ApprovedBriefCard key={brief.id} brief={brief} clientColor={clientColor} />
+                  <ApprovedBriefCard key={brief.id} brief={brief} />
                 ))}
                 {allApproved.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-gray-200 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.02] py-12 text-center">
@@ -806,11 +806,10 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         ? 'cursor-grabbing rotate-1 scale-105 border-gray-200 dark:border-white/[0.08]'
         : 'cursor-grab border-gray-100 dark:border-white/[0.08] shadow-sm hover:border-gray-200 dark:hover:border-white/[0.14] hover:shadow-md'}`}
       style={{
-        borderTop: `3px solid ${clientColor}`,
         background: isDark
           ? (isDragging
-              ? 'linear-gradient(rgba(255,255,255,0.04), rgba(255,255,255,0.04)), #161B26'
-              : '#161B26')
+              ? 'linear-gradient(rgba(255,255,255,0.04), rgba(255,255,255,0.04)), #22283A'
+              : '#22283A')
           : '#ffffff',
         ...(isDragging ? { boxShadow: '0 8px 24px rgba(0,0,0,0.45)' } : {}),
       }}
@@ -839,7 +838,7 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         onMouseLeave={() => setCoverHover(false)}
       >
         {brief.cover_attachment.file_type === 'application/pdf' ? (
-          <div className="h-full w-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-rose-500/20 via-[#161B26] to-rose-900/40">
+          <div className="h-full w-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-rose-500/20 via-[#22283A] to-rose-900/40">
             <FileText className="h-8 w-8 text-rose-300" />
             <p className="text-[10px] font-semibold text-rose-100 truncate max-w-[90%]">{brief.cover_attachment.file_name}</p>
           </div>
@@ -1321,13 +1320,10 @@ function BriefFilesSection({ briefId, clientColor, onCoverChanged }: {
 
 // ─── Approved Card ────────────────────────────────────────────────────────────
 
-function ApprovedBriefCard({ brief, clientColor }: { brief: Brief; clientColor: string }) {
+function ApprovedBriefCard({ brief }: { brief: Brief }) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === brief.content_type)
   return (
-    <div
-      className="rounded-2xl bg-white dark:bg-[#161B26] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4"
-      style={{ borderTop: `3px solid ${clientColor}` }}
-    >
+    <div className="rounded-2xl bg-white dark:bg-[#22283A] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4">
       <div className="flex items-start gap-3">
         <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-500 dark:text-emerald-400" />
         <div className="flex-1 min-w-0">
