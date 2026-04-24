@@ -7,7 +7,7 @@ import {
   CheckCircle2, Play, Plus, X, Send, ExternalLink,
   MessageSquare, RotateCcw, Loader2, ChevronDown, Clock,
   Video, Image, Mail, LayoutGrid, Mic, FileText, CircleDot,
-  Upload, Trash2, AtSign, Pencil, Check,
+  Upload, Trash2, AtSign, Pencil, Check, Download,
 } from 'lucide-react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
@@ -404,19 +404,11 @@ export default function CreativePipeline() {
     }
   }
 
-  async function handleRequestRevisions(briefId: string) {
-    const supabase = createClient()
-    await supabase
-      .from('briefs')
-      .update({ pipeline_status: 'client_review', internal_status: 'revisions_required' })
-      .eq('id', briefId)
-    setBriefs(prev => prev.map(b =>
-      b.id === briefId ? { ...b, pipeline_status: 'client_review', internal_status: 'revisions_required' } : b
-    ))
-    if (selectedBrief?.id === briefId) {
-      setSelectedBrief(prev => prev ? { ...prev, pipeline_status: 'client_review', internal_status: 'revisions_required' } : null)
-    }
-  }
+  // NOTE: Clients no longer request revisions from the Portal. Feedback goes
+  // through comments instead. Hub keeps its own Request Revisions flow; that
+  // lives in the Hub repo and is untouched by this change. The
+  // `revisions_required` internal_status may still arrive from Hub, so the
+  // card's red "Revisions requested" pill remains a display-only surface.
 
   async function handleDeleteBrief(briefId: string) {
     const supabase = createClient()
@@ -644,7 +636,6 @@ export default function CreativePipeline() {
                               isUpNext={index === 0}
                               onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
                               onApprove={() => handleApprove(brief.id)}
-                              onRequestRevisions={() => handleRequestRevisions(brief.id)}
                               onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
                               onCoverDelete={() => handleCoverDelete(brief.id)}
                             />
@@ -699,7 +690,6 @@ export default function CreativePipeline() {
                               isDragging={snapshot.isDragging}
                               onOpen={() => !snapshot.isDragging && setSelectedBrief(brief)}
                               onApprove={() => handleApprove(brief.id)}
-                              onRequestRevisions={() => handleRequestRevisions(brief.id)}
                               onCoverUpload={(file) => handleCoverUpload(brief.id, file)}
                               onCoverDelete={() => handleCoverDelete(brief.id)}
                             />
@@ -768,7 +758,6 @@ export default function CreativePipeline() {
             clientColor={clientColor}
             onClose={() => setSelectedBrief(null)}
             onApprove={() => handleApprove(selectedBrief.id)}
-            onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
             onReRun={() => handleReRun(selectedBrief)}
             onCoverUpload={(file) => handleCoverUpload(selectedBrief.id, file)}
             onCoverDelete={() => handleCoverDelete(selectedBrief.id)}
@@ -816,7 +805,7 @@ const STOP_DRAG = {
   onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
 }
 
-function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpen, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete }: {
+function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpen, onApprove, onCoverUpload, onCoverDelete }: {
   brief: Brief
   clientColor: string
   reviewMode?: boolean
@@ -824,13 +813,11 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
   isDragging?: boolean
   onOpen: () => void
   onApprove: () => void
-  onRequestRevisions: () => void
   onCoverUpload?: (file: File | null) => void
   onCoverDelete?: () => void
 }) {
   const { isDark }                          = useTheme()
   const [approving, setApproving]           = useState(false)
-  const [revisioning, setRevisioning]       = useState(false)
   const [coverHover, setCoverHover]         = useState(false)
   const [coverMenuOpen, setCoverMenuOpen]   = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
@@ -863,12 +850,6 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
     setApproving(true)
     await onApprove()
     setApproving(false)
-  }
-
-  async function requestRevisions() {
-    setRevisioning(true)
-    await onRequestRevisions()
-    setRevisioning(false)
   }
 
   return (
@@ -1047,55 +1028,49 @@ function BriefCard({ brief, clientColor, reviewMode, isUpNext, isDragging, onOpe
         Open Brief
       </button>
 
-      {/* Action buttons */}
-      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-        {hasDraft ? (
-          <a
-            {...STOP_DRAG}
-            href={brief.draft_url!}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-          >
-            <Play className="h-3 w-3" />
-            View Draft
-          </a>
-        ) : (
+      {/* Action buttons — only In Production cards show View Draft / Approve.
+          Backlog cards render Open Brief on its own. Approved cards render
+          through ApprovedBriefCard, which has its own button pair. */}
+      {reviewMode && (
+        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+          {hasDraft ? (
+            <a
+              {...STOP_DRAG}
+              href={brief.draft_url!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <Play className="h-3 w-3" />
+              View Draft
+            </a>
+          ) : (
+            <button
+              {...STOP_DRAG}
+              disabled
+              aria-disabled="true"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-100 dark:border-white/5 py-2 text-xs font-medium text-gray-300 dark:text-gray-500 opacity-70 cursor-not-allowed"
+            >
+              <Play className="h-3 w-3" />
+              View Draft
+            </button>
+          )}
+
           <button
             {...STOP_DRAG}
-            disabled
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-100 dark:border-white/5 py-2 text-xs font-medium text-gray-300 dark:text-gray-500 cursor-not-allowed"
+            onClick={approve}
+            disabled={approving || !hasDraft}
+            aria-disabled={!hasDraft || approving || undefined}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-colors ${
+              hasDraft
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                : 'bg-gray-50 dark:bg-white/5 text-gray-300 dark:text-gray-500 border border-gray-100 dark:border-white/10 opacity-70 cursor-not-allowed'
+            }`}
           >
-            <Play className="h-3 w-3" />
-            View Draft
+            {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+            Approve
           </button>
-        )}
-
-        <button
-          {...STOP_DRAG}
-          onClick={approve}
-          disabled={approving || !reviewMode || !hasDraft}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-colors ${
-            reviewMode && hasDraft
-              ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-              : 'bg-gray-50 dark:bg-white/5 text-gray-300 dark:text-gray-500 border border-gray-100 dark:border-white/10 cursor-not-allowed'
-          }`}
-        >
-          {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-          Approve
-        </button>
-      </div>
-
-      {reviewMode && hasDraft && !isRevisions && (
-        <button
-          {...STOP_DRAG}
-          onClick={e => { e.stopPropagation(); requestRevisions() }}
-          disabled={revisioning}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl border border-red-100 dark:border-red-500/30 py-2 text-xs font-semibold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-        >
-          {revisioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-          Request Revisions
-        </button>
+        </div>
       )}
     </div>
   )
@@ -1393,19 +1368,13 @@ function BriefFilesSection({ briefId, clientColor, onCoverChanged }: {
 
 function ApprovedBriefCard({ brief, onOpen }: { brief: Brief; onOpen?: () => void }) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === brief.content_type)
+  const hasDraft = !!brief.draft_url
   return (
-    <div
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      onClick={onOpen}
-      onKeyDown={onOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } } : undefined}
-      aria-label={onOpen ? `Open approved brief: ${brief.name}` : undefined}
-      className={`rounded-2xl bg-white dark:bg-[#22283A] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4 ${onOpen ? 'cursor-pointer hover:border-gray-200 dark:hover:border-white/[0.14] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4950F8]/40' : ''}`}
-    >
+    <div className="rounded-2xl bg-white dark:bg-[#22283A] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4 space-y-2.5">
       <div className="flex items-start gap-3">
         <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-500 dark:text-emerald-400" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 dark:text-[#F1F5F9] leading-snug truncate">{brief.name}</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-[#F1F5F9] leading-snug">{brief.name}</p>
           {brief.campaign && <p className="text-xs text-gray-400 mt-0.5">{brief.campaign}</p>}
           {typeInfo && (
             <span
@@ -1416,25 +1385,51 @@ function ApprovedBriefCard({ brief, onOpen }: { brief: Brief; onOpen?: () => voi
             </span>
           )}
         </div>
-        {brief.draft_url && (
-          <a href={brief.draft_url} target="_blank" rel="noopener noreferrer"
-            className="text-gray-300 dark:text-gray-400 hover:text-gray-500 dark:hover:text-gray-200 transition-colors flex-shrink-0 mt-0.5">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        )}
       </div>
+
+      {/* Open Brief — matches the CTA from BriefCard for visual parity */}
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white bg-[#4950F8] hover:bg-[#5A61FA] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4950F8]/40"
+      >
+        <ExternalLink className="h-3 w-3" />
+        Open Brief
+      </button>
+
+      {/* Download assets — links straight to the approved draft_url. Disabled
+          when the approved row somehow has no draft_url attached. */}
+      {hasDraft ? (
+        <a
+          href={brief.draft_url!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+        >
+          <Download className="h-3 w-3" />
+          Download assets
+        </a>
+      ) : (
+        <button
+          disabled
+          aria-disabled="true"
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-gray-300 dark:text-gray-500 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 opacity-70 cursor-not-allowed"
+        >
+          <Download className="h-3 w-3" />
+          Download assets
+        </button>
+      )}
     </div>
   )
 }
 
 // ─── Brief Side Panel ────────────────────────────────────────────────────────
 
-function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete, onReload, onReRun }: {
+function BriefPanel({ brief, clientColor, onClose, onApprove, onCoverUpload, onCoverDelete, onDelete, onReload, onReRun }: {
   brief: Brief
   clientColor: string
   onClose: () => void
   onApprove: () => void
-  onRequestRevisions: () => void
   onCoverUpload?: (file: File) => void
   onCoverDelete?: () => void
   onDelete?: () => void
@@ -1851,16 +1846,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                   </div>
                 )}
                 {isReview && hasDraft && !isApproved && (
-                  <div className="flex gap-2">
-                    <button onClick={onRequestRevisions}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-100 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors">
-                      <RotateCcw className="h-3.5 w-3.5" /> Request Revisions
-                    </button>
-                    <button onClick={onApprove}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                    </button>
-                  </div>
+                  <button
+                    onClick={onApprove}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                  </button>
                 )}
               </div>
 
