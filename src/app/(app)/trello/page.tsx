@@ -503,6 +503,40 @@ export default function CreativePipeline() {
     setSelectedBrief(prev => prev?.id === briefId ? { ...prev, cover_url: null } : prev)
   }
 
+  // Re-run an approved brief: clone the scope-defining fields into a fresh
+  // Backlog row. Doesn't touch the original (it stays approved / immutable).
+  // Attachments, comments, draft, and due-date are NOT carried over.
+  async function handleReRun(source: Brief) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: newRow, error } = await supabase
+      .from('briefs')
+      .insert({
+        name:            `Re-run: ${source.name}`,
+        description:     source.description,
+        campaign:        source.campaign,
+        content_type:    source.content_type,
+        client_id:       source.client_id,
+        pipeline_status: 'backlog',
+        internal_status: 'backlog',
+        // Negative sort_order pushes the new row to the top of the backlog.
+        sort_order:      -Date.now(),
+        created_by:      user?.id ?? null,
+      })
+      .select('id')
+      .single()
+    if (error || !newRow) {
+      showToast(`Could not re-run brief: ${error?.message ?? 'unknown error'}`)
+      return
+    }
+    setSelectedBrief(null)
+    showToast('New brief created in your Backlog')
+    // Reuse the existing pending-open pattern — load() refreshes briefs, the
+    // useEffect on pendingBriefId then opens the new drawer once it appears.
+    setPendingBriefId(newRow.id)
+    if (clientId) load(clientId, true)
+  }
+
   const inProduction  = briefs.filter(b => ['in_production', 'client_review', 'qa_review'].includes(b.pipeline_status))
   const allApproved   = briefs.filter(b => b.pipeline_status === 'approved')
   const approvedCards = showAllApproved ? allApproved : allApproved.slice(0, 10)
@@ -688,7 +722,11 @@ export default function CreativePipeline() {
                   Approved briefs auto-delete after 90 days
                 </p>
                 {approvedCards.map(brief => (
-                  <ApprovedBriefCard key={brief.id} brief={brief} />
+                  <ApprovedBriefCard
+                    key={brief.id}
+                    brief={brief}
+                    onOpen={() => setSelectedBrief(brief)}
+                  />
                 ))}
                 {allApproved.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-gray-200 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.02] py-12 text-center">
@@ -717,6 +755,7 @@ export default function CreativePipeline() {
             onClose={() => setSelectedBrief(null)}
             onApprove={() => handleApprove(selectedBrief.id)}
             onRequestRevisions={() => handleRequestRevisions(selectedBrief.id)}
+            onReRun={() => handleReRun(selectedBrief)}
             onCoverUpload={(file) => handleCoverUpload(selectedBrief.id, file)}
             onCoverDelete={() => handleCoverDelete(selectedBrief.id)}
             onDelete={() => handleDeleteBrief(selectedBrief.id)}
@@ -1338,10 +1377,17 @@ function BriefFilesSection({ briefId, clientColor, onCoverChanged }: {
 
 // ─── Approved Card ────────────────────────────────────────────────────────────
 
-function ApprovedBriefCard({ brief }: { brief: Brief }) {
+function ApprovedBriefCard({ brief, onOpen }: { brief: Brief; onOpen?: () => void }) {
   const typeInfo = CONTENT_TYPES.find(t => t.id === brief.content_type)
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#22283A] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4">
+    <div
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } } : undefined}
+      aria-label={onOpen ? `Open approved brief: ${brief.name}` : undefined}
+      className={`rounded-2xl bg-white dark:bg-[#22283A] border border-gray-100 dark:border-white/[0.08] shadow-sm p-4 ${onOpen ? 'cursor-pointer hover:border-gray-200 dark:hover:border-white/[0.14] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4950F8]/40' : ''}`}
+    >
       <div className="flex items-start gap-3">
         <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-500 dark:text-emerald-400" />
         <div className="flex-1 min-w-0">
@@ -1369,7 +1415,7 @@ function ApprovedBriefCard({ brief }: { brief: Brief }) {
 
 // ─── Brief Side Panel ────────────────────────────────────────────────────────
 
-function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete, onReload }: {
+function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions, onCoverUpload, onCoverDelete, onDelete, onReload, onReRun }: {
   brief: Brief
   clientColor: string
   onClose: () => void
@@ -1379,6 +1425,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
   onCoverDelete?: () => void
   onDelete?: () => void
   onReload?: () => void
+  onReRun?: () => void
 }) {
   const coverFileRef = useRef<HTMLInputElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -1640,8 +1687,8 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
         {brief.cover_url && (
           <div className="relative flex-shrink-0 w-full rounded-t-2xl group/coverpanel overflow-hidden bg-black/80">
             <img src={brief.cover_url} alt="" className="w-full max-h-48 object-contain" />
-            {/* Cover actions — top right */}
-            {onCoverUpload && (
+            {/* Cover actions — top right (hidden on approved: brief is locked) */}
+            {onCoverUpload && !isApproved && (
               <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover/coverpanel:opacity-100 transition-opacity">
                 <button
                   onClick={() => coverFileRef.current?.click()}
@@ -1719,8 +1766,25 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
           <div className="w-[52%] flex-shrink-0 border-r border-gray-100 overflow-y-auto">
             <div className="p-6 space-y-6">
 
+              {/* Re-run banner — approved briefs only */}
+              {isApproved && onReRun && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 p-4">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 mb-2">
+                    This brief is approved and locked. Need another round?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onReRun()}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#4950F8] hover:bg-[#5A61FA] px-4 py-2.5 text-sm font-semibold text-white transition-colors"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Re-run this brief
+                  </button>
+                </div>
+              )}
+
               {/* People */}
-              <div className="space-y-2">
+              <div className={`space-y-2 ${isApproved ? 'pointer-events-none opacity-70' : ''}`} aria-disabled={isApproved || undefined}>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">People</p>
                 <TagUsersControl
                   briefId={brief.id}
@@ -1792,11 +1856,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                 <textarea
                   rows={6}
                   value={localDesc}
+                  readOnly={isApproved}
                   onChange={e => setLocalDesc(e.target.value)}
-                  onFocus={() => setEditingField('description')}
-                  onBlur={() => { if (editingField === 'description') saveField('description', localDesc) }}
+                  onFocus={() => !isApproved && setEditingField('description')}
+                  onBlur={() => { if (!isApproved && editingField === 'description') saveField('description', localDesc) }}
                   placeholder="Add a more detailed description…"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none hover:border-gray-300"
+                  className={`w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none ${isApproved ? 'cursor-default opacity-70' : 'hover:border-gray-300'}`}
                   style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
                 />
                 {savingField === 'description' && (
@@ -1815,11 +1880,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     <input
                       type="text"
                       value={localCampaign}
+                      readOnly={isApproved}
                       onChange={e => setLocalCampaign(e.target.value)}
-                      onFocus={() => setEditingField('campaign')}
-                      onBlur={() => { if (editingField === 'campaign') saveField('campaign', localCampaign) }}
+                      onFocus={() => !isApproved && setEditingField('campaign')}
+                      onBlur={() => { if (!isApproved && editingField === 'campaign') saveField('campaign', localCampaign) }}
                       placeholder="Add campaign name…"
-                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all w-full ${isApproved ? 'cursor-default opacity-70' : 'hover:border-gray-300'}`}
                       style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
                     />
                   </div>
@@ -1830,8 +1896,9 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     <input
                       type="date"
                       value={localDueDate}
-                      onChange={e => { setLocalDueDate(e.target.value); saveField('due_date', e.target.value) }}
-                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      disabled={isApproved}
+                      onChange={e => { if (isApproved) return; setLocalDueDate(e.target.value); saveField('due_date', e.target.value) }}
+                      className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent transition-all w-full ${isApproved ? 'cursor-default opacity-70' : 'hover:border-gray-300'}`}
                       style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
                     />
                   </div>
@@ -1842,11 +1909,12 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
                     <input
                       type="url"
                       value={localRefUrl}
+                      readOnly={isApproved}
                       onChange={e => setLocalRefUrl(e.target.value)}
-                      onFocus={() => setEditingField('ref_url')}
-                      onBlur={() => { if (editingField === 'ref_url') saveField('ref_url', localRefUrl) }}
+                      onFocus={() => !isApproved && setEditingField('ref_url')}
+                      onBlur={() => { if (!isApproved && editingField === 'ref_url') saveField('ref_url', localRefUrl) }}
                       placeholder="https://…"
-                      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent hover:border-gray-300 transition-all w-full"
+                      className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all w-full ${isApproved ? 'cursor-default opacity-70' : 'hover:border-gray-300'}`}
                       style={{ '--tw-ring-color': clientColor } as React.CSSProperties}
                     />
                   </div>
@@ -1856,7 +1924,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
               {/* ── Content Type ── */}
               <div>
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Content Type</p>
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap gap-2 ${isApproved ? 'pointer-events-none opacity-70' : ''}`} aria-disabled={isApproved || undefined}>
                   {CONTENT_TYPES.map(t => {
                     const active = localType === t.id
                     return (
@@ -1880,7 +1948,7 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
               {/* ── Aspect Ratios / Sizes ── */}
               <div>
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Aspect Ratios</p>
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap gap-2 ${isApproved ? 'pointer-events-none opacity-70' : ''}`} aria-disabled={isApproved || undefined}>
                   {SIZES.map(s => {
                     const active = localSizes.includes(s)
                     return (
@@ -1901,14 +1969,16 @@ function BriefPanel({ brief, clientColor, onClose, onApprove, onRequestRevisions
               </div>
 
               {/* ── Files ── */}
-              <BriefFilesSection
-                briefId={brief.id}
-                clientColor={clientColor}
-                onCoverChanged={onReload}
-              />
+              <div className={isApproved ? 'pointer-events-none opacity-70' : ''} aria-disabled={isApproved || undefined}>
+                <BriefFilesSection
+                  briefId={brief.id}
+                  clientColor={clientColor}
+                  onCoverChanged={onReload}
+                />
+              </div>
 
-              {/* ── Delete brief ── */}
-              {onDelete && (
+              {/* ── Delete brief ── Hidden on approved; the brief is locked. */}
+              {onDelete && !isApproved && (
                 <div className="pt-2 border-t border-gray-100">
                   {!confirmDelete ? (
                     <button
