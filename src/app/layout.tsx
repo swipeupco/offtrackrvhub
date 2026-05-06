@@ -2,8 +2,38 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'SwipeUp Portal',
-  description: 'Client portal powered by SwipeUp',
+  title: {
+    default: 'SwipeUp Portal',
+    template: '%s — SwipeUp',
+  },
+  description: 'Your marketing command centre. Review briefs, track campaigns, manage your brand — all in one place.',
+  metadataBase: new URL('https://portal.swipeupco.com'),
+  openGraph: {
+    title: 'SwipeUp Portal',
+    description: 'Your marketing command centre. Review briefs, track campaigns, manage your brand — all in one place.',
+    url: 'https://portal.swipeupco.com',
+    siteName: 'SwipeUp',
+    images: [
+      {
+        url: '/SwipeUp_Email.png',
+        width: 1200,
+        height: 630,
+        alt: 'SwipeUp Portal',
+      },
+    ],
+    locale: 'en_AU',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SwipeUp Portal',
+    description: 'Your marketing command centre. Review briefs, track campaigns, manage your brand — all in one place.',
+    images: ['/SwipeUp_Email.png'],
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
